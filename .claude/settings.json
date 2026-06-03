@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"console.log\\(require\\('./node_modules/prisma/package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/@prisma/client/package.json'\\).version\\)\")",
+      "Bash(sed -i 's|from '\\\\''../generated/prisma'\\\\''|from '\\\\''../generated/prisma/client'\\\\''|g' lib/prisma.ts routes/dashboard.ts types/express.d.ts services/bookingValidation.ts)",
+      "Bash(sed -i \"s|from '../generated/prisma'|from '../generated/prisma/client'|g\" prisma/seed.ts)",
+      "Bash(xargs cat)"
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "watch": [".", "routes", "middleware", "lib", "services", "config", "prisma"],
+  "ext": "ts,json",
+  "ignore": ["node_modules", "dist", "prisma/migrations"],
+  "delay": 800,
+  "execMap": {
+    "ts": "tsx"
+  }
+}

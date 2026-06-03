@@ -1,0 +1,194 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Tenant {
+  id         Int      @id @default(autoincrement())
+  name       String
+  slug       String   @unique
+  active     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  users        User[]
+  clients      Client[]
+  appointments Appointment[]
+  activity_log ActivityLog[]
+  specialties  Specialty[]
+  professionals Professional[]
+  services     Service[]
+  availability Availability[]
+
+  @@map("tenants")
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  name       String
+  email      String   @unique
+  password   String
+  role       String   @default("admin")
+  active     Boolean  @default(true)
+  tenant_id  Int?
+  created_at DateTime @default(now())
+
+  tenant       Tenant?       @relation(fields: [tenant_id], references: [id])
+  activity_log ActivityLog[]
+
+  @@map("users")
+}
+
+model Client {
+  id         Int      @id @default(autoincrement())
+  tenant_id  Int
+  name       String
+  email      String?
+  phone      String?
+  document   String?
+  address    String?
+  notes      String?
+  active     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenant_id], references: [id])
+  appointments Appointment[]
+
+  @@map("clients")
+}
+
+model Appointment {
+  id              Int      @id @default(autoincrement())
+  tenant_id       Int
+  client_id       Int
+  professional_id Int?
+  service_id      Int?
+  title           String
+  description     String?
+  scheduled_at    DateTime
+  status          String   @default("scheduled")
+  executor        String?
+  result          String?
+  customer_name   String?
+  customer_email  String?
+  customer_phone  String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenant_id], references: [id])
+  client       Client        @relation(fields: [client_id], references: [id])
+  professional Professional? @relation(fields: [professional_id], references: [id])
+  service      Service?      @relation(fields: [service_id], references: [id])
+
+  @@map("appointments")
+}
+
+model ActivityLog {
+  id         Int      @id @default(autoincrement())
+  tenant_id  Int?
+  user_id    Int?
+  action     String
+  entity     String?
+  entity_id  Int?
+  details    String?
+  created_at DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenant_id], references: [id])
+  user   User?   @relation(fields: [user_id], references: [id])
+
+  @@map("activity_log")
+}
+
+model Specialty {
+  id          Int      @id @default(autoincrement())
+  tenant_id   Int
+  name        String
+  description String?
+  created_at  DateTime @default(now())
+
+  tenant        Tenant                  @relation(fields: [tenant_id], references: [id])
+  professionals ProfessionalSpecialty[]
+
+  @@unique([tenant_id, name])
+  @@map("specialties")
+}
+
+model Professional {
+  id         Int      @id @default(autoincrement())
+  tenant_id  Int
+  name       String
+  email      String?
+  phone      String?
+  bio        String?
+  active     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  tenant       Tenant                  @relation(fields: [tenant_id], references: [id])
+  specialties  ProfessionalSpecialty[]
+  services     ProfessionalService[]
+  availability Availability[]
+  appointments Appointment[]
+
+  @@map("professionals")
+}
+
+model ProfessionalSpecialty {
+  professional_id Int
+  specialty_id    Int
+
+  professional Professional @relation(fields: [professional_id], references: [id], onDelete: Cascade)
+  specialty    Specialty     @relation(fields: [specialty_id], references: [id], onDelete: Cascade)
+
+  @@id([professional_id, specialty_id])
+  @@map("professional_specialties")
+}
+
+model Service {
+  id               Int      @id @default(autoincrement())
+  tenant_id        Int
+  name             String
+  description      String?
+  duration_minutes Int      @default(60)
+  price            Decimal  @default(0) @db.Decimal(10, 2)
+  active           Boolean  @default(true)
+  created_at       DateTime @default(now())
+
+  tenant        Tenant               @relation(fields: [tenant_id], references: [id])
+  professionals ProfessionalService[]
+  appointments  Appointment[]
+
+  @@map("services")
+}
+
+model ProfessionalService {
+  professional_id Int
+  service_id      Int
+
+  professional Professional @relation(fields: [professional_id], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@id([professional_id, service_id])
+  @@map("professional_services")
+}
+
+model Availability {
+  id              Int     @id @default(autoincrement())
+  tenant_id       Int
+  professional_id Int
+  weekday         Int
+  start_time      String  @default("08:00")
+  end_time        String  @default("18:00")
+  active          Boolean @default(true)
+
+  tenant       Tenant       @relation(fields: [tenant_id], references: [id])
+  professional Professional @relation(fields: [professional_id], references: [id], onDelete: Cascade)
+
+  @@map("availability")
+}
