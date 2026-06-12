@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, Loader2, AlertCircle, CalendarClock, User, Briefcase } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, Loader2, AlertCircle, CalendarClock, User, Briefcase, MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import api from '../api/axios';
@@ -14,6 +14,7 @@ interface Appointment {
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Todos os status' },
+  { value: 'pending', label: 'Pendente' },
   { value: 'scheduled', label: 'Agendado' },
   { value: 'running', label: 'Em Execução' },
   { value: 'finished', label: 'Finalizado' },
@@ -24,11 +25,23 @@ const STATUS_OPTIONS = [
 function AppointmentForm({ initial, onSave, onCancel, loading, error }: {
   initial: Partial<Appointment>; onSave: (f: any) => void; onCancel: () => void; loading: boolean; error: string;
 }) {
+  // Converter data UTC para formato local do datetime-local input
+  const formatDateTimeLocal = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
   const [form, setForm] = useState({
     client_id: String(initial.client_id ?? ''),
     title: initial.title ?? '',
     description: initial.description ?? '',
-    scheduled_at: initial.scheduled_at ?? '',
+    scheduled_at: formatDateTimeLocal(initial.scheduled_at ?? ''),
     status: initial.status ?? 'scheduled',
     executor: initial.executor ?? '',
     result: (initial as any).result ?? '',
@@ -59,6 +72,7 @@ function AppointmentForm({ initial, onSave, onCancel, loading, error }: {
         <div>
           <label className="label">Status</label>
           <select className="input" value={form.status} onChange={set('status')}>
+            <option value="pending">Pendente</option>
             <option value="scheduled">Agendado</option>
             <option value="running">Em Execução</option>
             <option value="finished">Finalizado</option>
@@ -75,7 +89,7 @@ function AppointmentForm({ initial, onSave, onCancel, loading, error }: {
         </div>
         <div><label className="label">Executor</label><input className="input" placeholder="Responsável pela execução" value={form.executor ?? ''} onChange={set('executor')} /></div>
         <div className="sm:col-span-2"><label className="label">Título *</label><input className="input" placeholder="Título do agendamento" value={form.title} onChange={set('title')} /></div>
-        <div className="sm:col-span-2"><label className="label">Data e hora *</label><input className="input" type="datetime-local" value={String(form.scheduled_at).slice(0, 16)} onChange={set('scheduled_at')} /></div>
+        <div className="sm:col-span-2"><label className="label">Data e hora *</label><input className="input" type="datetime-local" value={form.scheduled_at} onChange={set('scheduled_at')} /></div>
         <div className="sm:col-span-2"><label className="label">Descrição</label><textarea className="input resize-none" rows={2} placeholder="Detalhes do agendamento..." value={form.description ?? ''} onChange={set('description')} /></div>
         {(form.status === 'finished' || form.status === 'failed') && (
           <div className="sm:col-span-2"><label className="label">Resultado</label><textarea className="input resize-none" rows={2} placeholder="Resultado ou observações finais..." value={(form as any).result ?? ''} onChange={set('result')} /></div>
@@ -102,6 +116,7 @@ export default function Appointments() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -128,7 +143,21 @@ export default function Appointments() {
 
   const openEdit = (a: Appointment) => {
     setFormError('');
-    setModal({ appointment: { ...a, scheduled_at: a.scheduled_at ? String(a.scheduled_at).slice(0, 16) : '' } });
+    setModal({ appointment: a });
+  };
+
+  const handleResendWhatsApp = async (id: number) => {
+    if (!confirm('Enviar mensagem de confirmação via WhatsApp?')) return;
+    
+    setSendingWhatsApp(id);
+    try {
+      const response = await api.post(`/appointments/${id}/resend-whatsapp`);
+      alert(response.data.message || 'Mensagem enviada com sucesso!');
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Erro ao enviar mensagem');
+    } finally {
+      setSendingWhatsApp(null);
+    }
   };
 
   return (
@@ -188,6 +217,18 @@ export default function Appointments() {
                   <td className="px-4 py-3 hidden sm:table-cell"><StatusBadge status={a.status} /></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 justify-end">
+                      <button 
+                        onClick={() => handleResendWhatsApp(a.id)} 
+                        className="p-1.5 text-gray-500 hover:text-green-400 hover:bg-green-500/10 rounded-lg transition-colors"
+                        disabled={sendingWhatsApp === a.id}
+                        title="Reenviar confirmação WhatsApp"
+                      >
+                        {sendingWhatsApp === a.id ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : (
+                          <MessageCircle size={15} />
+                        )}
+                      </button>
                       <button onClick={() => openEdit(a)} className="p-1.5 text-gray-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors"><Pencil size={15} /></button>
                       <button onClick={() => setDeleteId(a.id)} className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 size={15} /></button>
                     </div>

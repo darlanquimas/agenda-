@@ -16,31 +16,48 @@ model Tenant {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  users        User[]
-  clients      Client[]
-  appointments Appointment[]
-  activity_log ActivityLog[]
-  specialties  Specialty[]
-  professionals Professional[]
-  services     Service[]
-  availability Availability[]
+  users              User[]
+  clients            Client[]
+  appointments       Appointment[]
+  activity_log       ActivityLog[]
+  specialties        Specialty[]
+  professionals      Professional[]
+  services           Service[]
+  availability       Availability[]
+  whatsapp_instances WhatsAppInstance[]
+  whatsapp_config    WhatsAppConfig?
 
   @@map("tenants")
 }
 
 model User {
-  id         Int      @id @default(autoincrement())
-  name       String
-  email      String   @unique
-  password   String
-  role       String   @default("admin")
-  active     Boolean  @default(true)
-  tenant_id  Int?
-  created_at DateTime @default(now())
+  id                      Int       @id @default(autoincrement())
+  name                    String
+  email                   String    @unique
+  password                String
+  role                    String    @default("admin")
+  active                  Boolean   @default(true)
+  tenant_id               Int?
+  created_at              DateTime  @default(now())
+  
+  two_factor_secret       String?
+  two_factor_enabled      Boolean   @default(false)
+  two_factor_backup_codes String?
+  
+  refresh_token_version   Int       @default(0)
+  last_login_at           DateTime?
+  password_changed_at     DateTime  @default(now())
+  
+  failed_login_attempts   Int       @default(0)
+  locked_until            DateTime?
+  account_locked          Boolean   @default(false)
 
   tenant       Tenant?       @relation(fields: [tenant_id], references: [id])
   activity_log ActivityLog[]
 
+  @@index([email])
+  @@index([tenant_id])
+  @@index([active])
   @@map("users")
 }
 
@@ -64,22 +81,23 @@ model Client {
 }
 
 model Appointment {
-  id              Int      @id @default(autoincrement())
-  tenant_id       Int
-  client_id       Int
-  professional_id Int?
-  service_id      Int?
-  title           String
-  description     String?
-  scheduled_at    DateTime
-  status          String   @default("scheduled")
-  executor        String?
-  result          String?
-  customer_name   String?
-  customer_email  String?
-  customer_phone  String?
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
+  id                 Int      @id @default(autoincrement())
+  tenant_id          Int
+  client_id          Int
+  professional_id    Int?
+  service_id         Int?
+  title              String
+  description        String?
+  scheduled_at       DateTime
+  status             String   @default("scheduled")
+  executor           String?
+  result             String?
+  customer_name      String?
+  customer_email     String?
+  customer_phone     String?
+  confirmation_token String?  @unique
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
 
   tenant       Tenant        @relation(fields: [tenant_id], references: [id])
   client       Client        @relation(fields: [client_id], references: [id])
@@ -191,4 +209,36 @@ model Availability {
   professional Professional @relation(fields: [professional_id], references: [id], onDelete: Cascade)
 
   @@map("availability")
+}
+
+model WhatsAppInstance {
+  id            Int      @id @default(autoincrement())
+  tenant_id     Int
+  instance_name String
+  instance_id   String?
+  phone_number  String?
+  status        String   @default("disconnected")
+  qr_code       String?
+  connected_at  DateTime?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, instance_name])
+  @@map("whatsapp_instances")
+}
+
+model WhatsAppConfig {
+  id                          Int      @id @default(autoincrement())
+  tenant_id                   Int      @unique
+  confirmation_message        String   @default("Olá {{cliente}}! 🎉\n\nSeu agendamento foi confirmado:\n\n📅 Data: {{data}}\n🕐 Horário: {{horario}}\n📍 Serviço: {{servico}}\n👤 Profissional: {{profissional}}\n\nNos vemos em breve!")
+  send_confirmation           Boolean  @default(true)
+  default_instance_id         Int?
+  created_at                  DateTime @default(now())
+  updated_at                  DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@map("whatsapp_config")
 }

@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, CalendarCheck, History, LogOut, Zap, X, UserCheck, Briefcase, ExternalLink, Check, Shield, UserCog, LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Users, CalendarCheck, History, LogOut, Zap, X, UserCheck, Briefcase, ExternalLink, Check, Shield, UserCog, MessageCircle, LucideIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useState } from 'react';
 
@@ -19,6 +19,7 @@ const links: NavItem[] = [
   { to: '/users', icon: UserCog, label: 'Usuários' },
   { divider: true, label: 'Operação' },
   { to: '/appointments', icon: CalendarCheck, label: 'Agendamentos' },
+  { to: '/whatsapp', icon: MessageCircle, label: 'WhatsApp' },
   { to: '/history', icon: History, label: 'Histórico' },
 ];
 
@@ -27,7 +28,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleLogout = async () => { await logout(); navigate('/login'); };
 
   const copyBookingLink = () => {
     if (!user?.tenant_slug) return;

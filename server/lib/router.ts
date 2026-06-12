@@ -1,5 +1,6 @@
 import express, { RequestHandler, Request, Response, NextFunction } from 'express';
 import auth from '../middleware/auth';
+import { csrfCheck } from '../middleware/csrf';
 
 type PublicHandler = RequestHandler & { _public?: boolean };
 
@@ -22,7 +23,7 @@ export function createRouter() {
     (router as any)[method] = (path: string, ...handlers: RequestHandler[]) => {
       const flat = handlers.flat() as PublicHandler[];
       const wrapped = flat.map(asyncHandler);
-      const stack = isPublicRoute(flat) ? wrapped : [asyncHandler(auth), ...wrapped];
+      const stack = isPublicRoute(flat) ? wrapped : [asyncHandler(auth), asyncHandler(csrfCheck), ...wrapped];
       return original(path, ...stack);
     };
   });

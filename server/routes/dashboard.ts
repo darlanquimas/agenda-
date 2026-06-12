@@ -2,6 +2,7 @@ import { Prisma } from '../generated/prisma/client';
 import prisma from '../lib/prisma';
 import { createRouter } from '../lib/router';
 import { tenantFilter, isSuperAdmin } from '../lib/tenantScope';
+import { capLimit } from '../lib/validate';
 
 const router = createRouter();
 
@@ -62,9 +63,9 @@ router.get('/stats', async (req, res) => {
 });
 
 router.get('/activity', async (req, res) => {
-  const { page = '1', limit = '20' } = req.query as Record<string, string>;
-  const pageN = Number(page);
-  const limitN = Number(limit);
+  const { page = '1', limit } = req.query as Record<string, string>;
+  const pageN = Math.max(1, Number(page) || 1);
+  const limitN = capLimit(limit, 20);
   const tf = tenantFilter(req.user);
 
   const [total, rows] = await Promise.all([

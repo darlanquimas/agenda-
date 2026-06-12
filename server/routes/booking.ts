@@ -2,6 +2,8 @@ import prisma from '../lib/prisma';
 import { createRouter } from '../lib/router';
 import { markPublic } from '../middleware/publicRoute';
 import { getAvailableSlots, validateBookingRequest } from '../services/bookingValidation';
+import whatsappService from '../services/whatsappService';
+import { generateUniqueToken } from '../lib/tokenGenerator';
 
 const router = createRouter();
 
@@ -91,6 +93,14 @@ router.post('/', ...markPublic(async (req, res) => {
         });
       }
 
+      // Gerar token único para confirmação
+      const confirmationToken = await generateUniqueToken(async (token) => {
+        const existing = await tx.appointment.findUnique({
+          where: { confirmation_token: token },
+        });
+        return !!existing;
+      });
+
       const appt = await tx.appointment.create({
         data: {
           tenant_id: tenantId,
@@ -100,9 +110,11 @@ router.post('/', ...markPublic(async (req, res) => {
           title,
           description: notes ? String(notes) : null,
           scheduled_at,
+          status: 'pending', // Agendamento pendente de confirmação
           customer_name: String(customer_name),
           customer_email: customer_email ? String(customer_email) : null,
           customer_phone: customer_phone ? String(customer_phone) : null,
+          confirmation_token: confirmationToken,
         },
       });
 
@@ -110,8 +122,27 @@ router.post('/', ...markPublic(async (req, res) => {
         data: { tenant_id: tenantId, action: 'create', entity: 'appointment', entity_id: appt.id, details: `Agendamento público: ${title}` },
       });
 
-      return { id: appt.id, scheduled_at: appt.scheduled_at };
+      return { 
+        id: appt.id, 
+        scheduled_at: appt.scheduled_at,
+        confirmation_token: appt.confirmation_token,
+      };
     });
+
+    // Enviar mensagem de confirmação via WhatsApp (não bloqueia o fluxo)
+    if (customer_phone) {
+      whatsappService.sendAppointmentConfirmation(tenantId, {
+        appointmentId: result.id,
+        confirmationToken: result.confirmation_token!,
+        clientName: String(customer_name),
+        clientPhone: String(customer_phone),
+        date: scheduled_at,
+        serviceName: service!.name,
+        professionalName: professional!.name,
+      }).catch((error) => {
+        console.error('[Booking] Erro ao enviar confirmação WhatsApp:', error);
+      });
+    }
 
     res.status(201).json({
       id: result.id,

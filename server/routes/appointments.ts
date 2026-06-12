@@ -2,9 +2,12 @@ import prisma from '../lib/prisma';
 import { createRouter } from '../lib/router';
 import { tenantFilter, logActivity } from '../lib/tenantScope';
 import { parseId, capLimit } from '../lib/validate';
+import whatsappService from '../services/whatsappService';
+import { generateUniqueToken } from '../lib/tokenGenerator';
+import logger from '../lib/logger';
 
 const router = createRouter();
-const VALID_STATUS = ['scheduled', 'running', 'finished', 'failed', 'cancelled'];
+const VALID_STATUS = ['pending', 'scheduled', 'running', 'finished', 'failed', 'cancelled'];
 const BLOCKS_SLOT = ['scheduled', 'running', 'finished'];
 
 async function checkProfessionalConflict(
@@ -156,26 +159,75 @@ router.put('/:id', async (req, res) => {
     }
   }
 
-  await prisma.appointment.update({
+  // Verificar se houve alteração na data/hora
+  const dateTimeChanged = scheduled_at && new Date(scheduled_at).getTime() !== app.scheduled_at.getTime();
+  
+  // Se a data/hora mudou, voltar para status 'pending' e gerar novo token
+  let newStatus = status ?? app.status;
+  let confirmationToken = app.confirmation_token;
+  
+  if (dateTimeChanged) {
+    newStatus = 'pending';
+    // Gerar novo token se não existir
+    if (!confirmationToken) {
+      confirmationToken = await generateUniqueToken(async (token) => {
+        const exists = await prisma.appointment.findUnique({
+          where: { confirmation_token: token },
+        });
+        return !!exists;
+      });
+    }
+  }
+
+  const updatedAppointment = await prisma.appointment.update({
     where: { id: app.id },
     data: {
       title: title ?? app.title,
       description: description ?? app.description,
       scheduled_at: newScheduledAt,
-      status: status ?? app.status,
+      status: newStatus,
       executor: executor ?? app.executor,
       result: result ?? app.result,
       professional_id: newProfessionalId,
+      confirmation_token: confirmationToken,
+    },
+    include: {
+      client: true,
+      service: true,
+      professional: true,
     },
   });
 
   if (status && status !== app.status) {
     const labels: Record<string, string> = {
-      scheduled: 'Agendado', running: 'Em Execução', finished: 'Finalizado',
+      pending: 'Pendente', scheduled: 'Agendado', running: 'Em Execução', finished: 'Finalizado',
       failed: 'Falhou', cancelled: 'Cancelado',
     };
     await logActivity(req, 'update', 'appointment', app.id, `Status alterado para ${labels[status]}`);
   }
+
+  // Se a data/hora mudou, enviar nova mensagem de confirmação
+  if (dateTimeChanged) {
+    await logActivity(req, 'update', 'appointment', app.id, 'Data/hora alterada - nova confirmação enviada');
+    
+    // Enviar mensagem de WhatsApp (não-bloqueante)
+    whatsappService.sendAppointmentConfirmation(app.tenant_id, {
+      appointmentId: updatedAppointment.id,
+      confirmationToken: confirmationToken!,
+      clientName: updatedAppointment.client.name,
+      clientPhone: updatedAppointment.client.phone,
+      date: updatedAppointment.scheduled_at,
+      serviceName: updatedAppointment.service?.name,
+      professionalName: updatedAppointment.professional?.name,
+    }, true).catch((err) => {
+      // Log do erro mas não falha a requisição
+      logger.error('[Appointments] Erro ao enviar WhatsApp após edição', {
+        appointmentId: updatedAppointment.id,
+        error: err.message,
+      });
+    });
+  }
+  
   res.json({ message: 'Agendamento atualizado' });
 });
 
@@ -188,6 +240,85 @@ router.delete('/:id', async (req, res) => {
   await prisma.appointment.delete({ where: { id: app.id } });
   await logActivity(req, 'delete', 'appointment', app.id, `Agendamento excluído: ${app.title}`);
   res.json({ message: 'Agendamento excluído' });
+});
+
+// Reenviar mensagem de confirmação WhatsApp
+router.post('/:id/resend-whatsapp', async (req, res) => {
+  const id = parseId(req.params.id, 'Agendamento');
+  const tf = tenantFilter(req.user);
+
+  try {
+    const appointment = await prisma.appointment.findFirst({
+      where: { id, ...tf },
+      include: {
+        client: true,
+        service: true,
+        professional: true,
+      },
+    });
+
+    if (!appointment) {
+      return res.status(404).json({ error: 'Agendamento não encontrado' });
+    }
+
+    // Verificar se tem telefone
+    const phone = appointment.customer_phone || appointment.client?.phone;
+    if (!phone) {
+      return res.status(400).json({ error: 'Agendamento não possui telefone cadastrado' });
+    }
+
+    // Gerar novo token se não existir
+    let confirmationToken = appointment.confirmation_token;
+    if (!confirmationToken) {
+      confirmationToken = await generateUniqueToken(async (token) => {
+        const existing = await prisma.appointment.findUnique({
+          where: { confirmation_token: token },
+        });
+        return !!existing;
+      });
+      
+      // Atualizar agendamento com o novo token
+      await prisma.appointment.update({
+        where: { id: appointment.id },
+        data: { confirmation_token: confirmationToken },
+      });
+    }
+
+    // Enviar mensagem
+    const sent = await whatsappService.sendAppointmentConfirmation(
+      req.user.tenant_id!,
+      {
+        appointmentId: appointment.id,
+        confirmationToken: confirmationToken,
+        clientName: appointment.customer_name || appointment.client?.name || 'Cliente',
+        clientPhone: phone,
+        date: appointment.scheduled_at,
+        serviceName: appointment.service?.name,
+        professionalName: appointment.professional?.name,
+      }
+    );
+
+    if (!sent) {
+      return res.status(400).json({ 
+        error: 'Não foi possível enviar a mensagem. Verifique se há uma instância WhatsApp conectada e se o envio está habilitado.' 
+      });
+    }
+
+    await logActivity(
+      req,
+      'update',
+      'appointment',
+      appointment.id,
+      `Mensagem WhatsApp reenviada para ${phone}`
+    );
+
+    res.json({ 
+      message: 'Mensagem enviada com sucesso!',
+      phone,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Erro ao enviar mensagem' });
+  }
 });
 
 export default router;

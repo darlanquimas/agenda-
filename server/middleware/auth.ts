@@ -11,6 +11,9 @@ export const USER_SELECT = {
   role: true,
   tenant_id: true,
   active: true,
+  account_locked: true,
+  locked_until: true,
+  two_factor_enabled: true,
   tenant: { select: { slug: true, name: true } },
 } as const;
 
@@ -35,25 +38,59 @@ export function rowToAuthUser(row: {
   };
 }
 
+/**
+ * Middleware de autenticação
+ * Suporta tanto cookies (preferencial) quanto Authorization header (backward compatibility)
+ */
 export default async function auth(req: Request, res: Response, next: NextFunction) {
-  const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) {
+  let token: string | undefined;
+
+  // Prioridade 1: Cookie (httpOnly, mais seguro)
+  token = req.cookies?.access_token;
+
+  // Prioridade 2: Authorization header (backward compatibility)
+  if (!token) {
+    const header = req.headers.authorization;
+    if (header && header.startsWith('Bearer ')) {
+      token = header.slice(7);
+    }
+  }
+
+  if (!token) {
     return res.status(401).json({ error: 'Token não fornecido' });
   }
+
   try {
-    const payload = jwt.verify(header.slice(7), config.jwtSecret) as { sub?: number; id?: number };
+    const payload = jwt.verify(token, config.jwtSecret) as { sub?: number; id?: number; type?: string };
     const userId = payload.sub ?? payload.id;
-    if (!userId) return res.status(401).json({ error: 'Token inválido' });
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'Token inválido' });
+    }
+
+    // Verificar se é um access token
+    if (payload.type && payload.type !== 'access') {
+      return res.status(401).json({ error: 'Tipo de token inválido' });
+    }
 
     const row = await prisma.user.findUnique({ where: { id: Number(userId) }, select: USER_SELECT });
-    if (!row || !row.active) return res.status(401).json({ error: 'Usuário inválido ou inativo' });
+    
+    if (!row || !row.active) {
+      return res.status(401).json({ error: 'Usuário inválido ou inativo' });
+    }
+
+    // Verificar se a conta está bloqueada
+    if (row.account_locked || (row.locked_until && new Date(row.locked_until) > new Date())) {
+      return res.status(403).json({ error: 'Conta bloqueada' });
+    }
+
     if (row.role !== 'super_admin' && !row.tenant_id) {
       return res.status(401).json({ error: 'Usuário sem organização vinculada' });
     }
 
     req.user = rowToAuthUser(row);
     next();
-  } catch {
-    res.status(401).json({ error: 'Token inválido' });
+  } catch (error) {
+    res.status(401).json({ error: 'Token inválido ou expirado' });
   }
 }

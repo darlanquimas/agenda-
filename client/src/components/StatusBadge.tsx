@@ -1,8 +1,9 @@
-import { Clock, Play, CheckCircle, XCircle, Ban, LucideIcon } from 'lucide-react';
+import { Clock, Play, CheckCircle, XCircle, Ban, AlertCircle, LucideIcon } from 'lucide-react';
 
-type Status = 'scheduled' | 'running' | 'finished' | 'failed' | 'cancelled';
+type Status = 'pending' | 'scheduled' | 'running' | 'finished' | 'failed' | 'cancelled';
 
 const config: Record<Status, { label: string; icon: LucideIcon; cls: string }> = {
+  pending:   { label: 'Pendente',    icon: AlertCircle, cls: 'badge-pending' },
   scheduled: { label: 'Agendado',    icon: Clock,       cls: 'badge-scheduled' },
   running:   { label: 'Em Execução', icon: Play,        cls: 'badge-running' },
   finished:  { label: 'Finalizado',  icon: CheckCircle, cls: 'badge-finished' },

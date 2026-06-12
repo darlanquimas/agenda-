@@ -5,6 +5,15 @@ import { parseId, isValidEmail } from '../lib/validate';
 
 const router = createRouter();
 
+async function assertTenantIds(
+  ids: number[],
+  finder: (ids: number[]) => Promise<{ id: number }[]>,
+): Promise<boolean> {
+  if (!ids.length) return true;
+  const found = await finder(ids);
+  return found.length === ids.length;
+}
+
 async function enrichProfessional(id: number) {
   const p = await prisma.professional.findUnique({
     where: { id },
@@ -53,6 +62,13 @@ router.post('/', async (req, res) => {
   const tenantId = req.user.tenant_id;
   if (!tenantId) return res.status(403).json({ error: 'Operação não disponível para super admin nesta tela' });
 
+  const [specValid, svcValid] = await Promise.all([
+    assertTenantIds(specialty_ids, (ids) => prisma.specialty.findMany({ where: { id: { in: ids }, tenant_id: tenantId }, select: { id: true } })),
+    assertTenantIds(service_ids, (ids) => prisma.service.findMany({ where: { id: { in: ids }, tenant_id: tenantId }, select: { id: true } })),
+  ]);
+  if (!specValid) return res.status(400).json({ error: 'Especialidade inválida' });
+  if (!svcValid) return res.status(400).json({ error: 'Serviço inválido' });
+
   const p = await prisma.professional.create({ data: { tenant_id: tenantId, name, email: email ? email.trim().toLowerCase() : null, phone, bio } });
 
   await Promise.all([
@@ -91,6 +107,12 @@ router.put('/:id', async (req, res) => {
   });
 
   if (specialty_ids !== undefined) {
+    if (specialty_ids.length) {
+      const valid = await assertTenantIds(specialty_ids, (ids) =>
+        prisma.specialty.findMany({ where: { id: { in: ids }, tenant_id: p.tenant_id }, select: { id: true } }),
+      );
+      if (!valid) return res.status(400).json({ error: 'Especialidade inválida' });
+    }
     await prisma.professionalSpecialty.deleteMany({ where: { professional_id: p.id } });
     if (specialty_ids.length) await prisma.professionalSpecialty.createMany({
       data: specialty_ids.map((id) => ({ professional_id: p.id, specialty_id: id })),
@@ -98,6 +120,12 @@ router.put('/:id', async (req, res) => {
     });
   }
   if (service_ids !== undefined) {
+    if (service_ids.length) {
+      const valid = await assertTenantIds(service_ids, (ids) =>
+        prisma.service.findMany({ where: { id: { in: ids }, tenant_id: p.tenant_id }, select: { id: true } }),
+      );
+      if (!valid) return res.status(400).json({ error: 'Serviço inválido' });
+    }
     await prisma.professionalService.deleteMany({ where: { professional_id: p.id } });
     if (service_ids.length) await prisma.professionalService.createMany({
       data: service_ids.map((id) => ({ professional_id: p.id, service_id: id })),
