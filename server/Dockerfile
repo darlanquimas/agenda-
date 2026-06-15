@@ -10,8 +10,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Instalar dependências
-RUN npm ci --only=production && npm cache clean --force
+# Instalar TODAS as dependências (incluindo devDependencies para o build)
+RUN npm ci && npm cache clean --force
 
 # Gerar cliente Prisma
 RUN npx prisma generate
@@ -29,12 +29,14 @@ RUN apk add --no-cache libc6-compat openssl
 
 WORKDIR /app
 
-# Copiar node_modules e arquivos gerados do stage anterior
-COPY --from=base /app/node_modules ./node_modules
+# Copiar package.json e instalar apenas dependências de produção
+COPY package*.json ./
+COPY prisma ./prisma/
+RUN npm ci --only=production && npm cache clean --force
+RUN npx prisma generate
+
+# Copiar arquivos compilados do stage anterior
 COPY --from=base /app/dist ./dist
-COPY --from=base /app/generated ./generated
-COPY --from=base /app/prisma ./prisma
-COPY --from=base /app/package*.json ./
 
 # Criar diretório de logs
 RUN mkdir -p logs
