@@ -1,0 +1,11 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci && npm cache clean --force
+
+COPY . .
+
+# Build em tempo de execução para receber variáveis de ambiente
+CMD ["sh", "-c", "npm run build && cp -r /app/dist/. /output/ && echo 'Build concluido. Arquivos em /output'"]
