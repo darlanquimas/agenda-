@@ -55,7 +55,4 @@ docker-compose*.yml
 tmp/
 temp/
 
-# Development
-src/
-public/
-index.html
+# Nota: src/, public/ e index.html são necessários para o build, não excluir!
