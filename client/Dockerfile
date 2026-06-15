@@ -12,6 +12,10 @@ RUN npm ci && npm cache clean --force
 # Copiar código fonte
 COPY . .
 
+# URL do backend (passada em tempo de build pelo docker-compose)
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+
 # Build da aplicação
 RUN npm run build
 
