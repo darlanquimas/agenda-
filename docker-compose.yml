@@ -39,8 +39,6 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
-      args:
-        VITE_API_URL: ${VITE_API_URL}
     container_name: agenda-frontend
     restart: unless-stopped
     depends_on:
@@ -49,18 +47,6 @@ services:
       - "127.0.0.1:${FRONTEND_PORT:-8075}:80"
     networks:
       - prod_network
-
-  # Frontend build-only: gera os arquivos estáticos em FRONTEND_DIST_PATH
-  frontend-build:
-    build:
-      context: ./client
-      dockerfile: Dockerfile.build
-    container_name: agenda-frontend-build
-    restart: "no"
-    environment:
-      VITE_API_URL: ${VITE_API_URL}
-    volumes:
-      - ./client/dist:/output
 
 volumes:
   backend_logs:
