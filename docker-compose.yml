@@ -29,7 +29,7 @@ services:
     volumes:
       - backend_logs:/app/logs
     ports:
-      - "${BACKEND_PORT:-3009}:3009"
+      - "127.0.0.1:${BACKEND_PORT:-3009}:3009"
     networks:
       - prod_network
     command: sh -c "npx prisma migrate deploy && npm start"
@@ -44,7 +44,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "${FRONTEND_PORT:-8075}:80"
+      - "127.0.0.1:${FRONTEND_PORT:-8075}:80"
     networks:
       - prod_network
 
