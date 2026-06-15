@@ -44,7 +44,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-8075}:80"
+      - "0.0.0.0:${FRONTEND_PORT:-8075}:80"
     networks:
       - prod_network
 
