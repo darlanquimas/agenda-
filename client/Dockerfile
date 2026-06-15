@@ -9,6 +9,9 @@ RUN npm ci && npm cache clean --force
 
 COPY . .
 
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 RUN npm run build
 
 # Stage de produção com nginx

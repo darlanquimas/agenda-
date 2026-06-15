@@ -29,9 +29,9 @@ services:
     volumes:
       - backend_logs:/app/logs
     ports:
-      - "127.0.0.0:${BACKEND_PORT:-3009}:3009"
+      - "0.0.0.0:${BACKEND_PORT:-3009}:3009"
     networks:
-      - prod_network
+      - dev_network
     command: sh -c "npx prisma migrate deploy && npx tsx index.ts"
 
   # Frontend (React + Nginx)
@@ -39,6 +39,8 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3009/api}
     container_name: agenda-frontend
     restart: unless-stopped
     depends_on:
@@ -46,13 +48,13 @@ services:
     ports:
       - "${FRONTEND_PORT:-8075}:80"
     networks:
-      - prod_network
+      - dev_network
 
 volumes:
   backend_logs:
     driver: local
 
 networks:
-  prod_network:
+  dev_network:
     external: true
 
