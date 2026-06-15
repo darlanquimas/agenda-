@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
+import { ToastContainer } from './components/Toast';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -29,27 +31,30 @@ function SuperAdminRoute({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/book/:tenantSlug" element={<Booking />} />
-          <Route path="/book" element={<Navigate to="/book/demo" replace />} />
-          <Route path="/platform" element={<SuperAdminRoute><Layout /></SuperAdminRoute>}>
-            <Route index element={<Platform />} />
-          </Route>
-          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-            <Route index element={<Dashboard />} />
-            <Route path="clients" element={<Clients />} />
-            <Route path="appointments" element={<Appointments />} />
-            <Route path="professionals" element={<Professionals />} />
-            <Route path="services" element={<ServicesPage />} />
-            <Route path="users" element={<TenantUsers />} />
-            <Route path="whatsapp" element={<WhatsApp />} />
-            <Route path="history" element={<History />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
+      <ToastProvider>
+        <BrowserRouter>
+          <ToastContainer />
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/book/:tenantSlug" element={<Booking />} />
+            <Route path="/book" element={<Navigate to="/book/demo" replace />} />
+            <Route path="/platform" element={<SuperAdminRoute><Layout /></SuperAdminRoute>}>
+              <Route index element={<Platform />} />
+            </Route>
+            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<Dashboard />} />
+              <Route path="clients" element={<Clients />} />
+              <Route path="appointments" element={<Appointments />} />
+              <Route path="professionals" element={<Professionals />} />
+              <Route path="services" element={<ServicesPage />} />
+              <Route path="users" element={<TenantUsers />} />
+              <Route path="whatsapp" element={<WhatsApp />} />
+              <Route path="history" element={<History />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </ToastProvider>
     </AuthProvider>
   );
 }

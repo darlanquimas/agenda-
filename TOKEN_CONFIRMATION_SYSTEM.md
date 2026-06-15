@@ -22,10 +22,21 @@ Cada agendamento agora possui um **token único de confirmação** de 8 caracter
 ### Validações de Segurança
 
 O webhook valida:
-1. ✅ **Token existe** no banco de dados
-2. ✅ **Token corresponde ao telefone** do remetente
-3. ✅ **Agendamento está pendente** (não foi processado antes)
-4. ✅ **Mensagem contém palavra-chave** (SIM/NÃO) + token
+1. ✅ **Autenticação do webhook** (API Key obrigatória)
+2. ✅ **Origem da mensagem** (deve ser WhatsApp válido)
+3. ✅ **Token existe e formato válido** (8 caracteres A-Z0-9)
+4. ✅ **Token corresponde ao telefone** do remetente
+5. ✅ **Token não expirou** (validade: 48h configurável)
+6. ✅ **Agendamento está pendente** (não foi processado antes)
+7. ✅ **Mensagem contém palavra-chave** (SIM/NÃO) + token
+8. ✅ **Rate limiting** (previne ataques de flood)
+
+### Auditoria e Monitoramento
+
+- Todos eventos suspeitos são registrados em `security_logs`
+- Dados sensíveis são mascarados nos logs
+- Respostas genéricas previnem enumeração
+- Alertas configuráveis para tentativas de acesso não autorizado
 
 ## 📱 Como Funciona
 
@@ -242,15 +253,17 @@ Agendamento B: Token B5C6D7E8 (15/06 10h)
 Cliente responde: `SIM X1Y2Z3A4`
 - ✅ Sistema confirma **apenas** Agendamento A
 - ✅ Agendamento B permanece pendente
+- ✅ Evento registrado em `security_logs`
 
 ### Caso 2: Token Inválido
 
 Cliente responde: `SIM 12345678` (token inexistente)
 - ❌ Sistema não encontra agendamento
-- ✅ Nenhuma ação é tomada
-- 📝 Log registra tentativa
+- ✅ Resposta genérica enviada
+- 📝 Evento `webhook_invalid_token` registrado
+- 🚨 Monitoramento alerta se houver muitas tentativas
 
-### Caso 3: Token de Outro Cliente
+### Caso 3: Token de Outro Cliente (Tentativa de Ataque)
 
 ```
 Cliente A: Token A1B2C3D4
@@ -258,15 +271,40 @@ Cliente B: Tenta usar Token A1B2C3D4
 ```
 
 - ❌ Telefone não corresponde ao agendamento
-- ✅ Sistema rejeita a confirmação
-- 🔒 Segurança mantida
+- ✅ Sistema rejeita silenciosamente
+- 📝 Evento suspeito registrado
+- 🔒 IP pode ser bloqueado se repetir
 
 ### Caso 4: Agendamento Já Processado
 
 Cliente responde duas vezes: `SIM A1B2C3D4`
 - ✅ Primeira resposta: Status muda para 'scheduled'
 - ✅ Segunda resposta: Não encontra (status != 'pending')
-- 📝 Log registra que já foi processado
+- 📝 Log registra tentativa duplicada
+
+### Caso 5: Token Expirado
+
+Cliente responde após 48h: `SIM A1B2C3D4`
+- ❌ Token já expirou
+- ✅ Mensagem automática informa expiração
+- 📝 Evento `webhook_expired_token` registrado
+- 💡 Cliente orientado a entrar em contato
+
+### Caso 6: Tentativa de Acesso Não Autorizado
+
+Atacante tenta enviar requisição direta ao webhook:
+- ❌ Sem header `X-API-Key`
+- ✅ Webhook retorna 401 Unauthorized
+- 📝 Evento `security_log` registrado com IP
+- 🚨 Rate limiter bloqueia se houver muitas tentativas
+
+### Caso 7: Flood de Requisições (DDoS)
+
+Atacante envia 200 requisições em 1 minuto:
+- ✅ Primeiras 100 são processadas
+- ❌ Requisições 101-200 são bloqueadas (429 Too Many Requests)
+- 📝 Eventos registrados
+- 🛡️ Sistema permanece estável
 
 ## 📊 Banco de Dados
 
@@ -274,23 +312,47 @@ Cliente responde duas vezes: `SIM A1B2C3D4`
 
 ```sql
 ALTER TABLE appointments
-ADD COLUMN confirmation_token VARCHAR(8) UNIQUE;
+ADD COLUMN confirmation_token VARCHAR(8) UNIQUE,
+ADD COLUMN confirmation_token_expires_at TIMESTAMP;
 
 CREATE UNIQUE INDEX idx_confirmation_token 
 ON appointments(confirmation_token)
 WHERE confirmation_token IS NOT NULL;
+
+CREATE TABLE security_logs (
+  id SERIAL PRIMARY KEY,
+  event_type VARCHAR(100) NOT NULL,
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  tenant_id INTEGER,
+  user_id INTEGER,
+  details TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_security_logs_event_type ON security_logs(event_type);
+CREATE INDEX idx_security_logs_created_at ON security_logs(created_at);
+CREATE INDEX idx_security_logs_tenant_id ON security_logs(tenant_id);
 ```
 
 ### Índices
 
 - **confirmation_token**: UNIQUE (busca rápida e previne duplicatas)
+- **confirmation_token_expires_at**: Validação de expiração
 - **status**: Filtro eficiente para 'pending'
 - **customer_phone**: Validação adicional
+
+### Campos de Segurança
+
+- `confirmation_token`: Token único de 8 caracteres
+- `confirmation_token_expires_at`: Data/hora de expiração (48h padrão)
+- Tabela `security_logs`: Auditoria de eventos suspeitos
 
 ### Migração de Dados Antigos
 
 Agendamentos criados antes da implementação:
 - `confirmation_token` = `NULL`
+- `confirmation_token_expires_at` = `NULL`
 - Ao reenviar confirmação, gera token automaticamente
 - Não afeta agendamentos já confirmados
 
@@ -299,22 +361,63 @@ Agendamentos criados antes da implementação:
 ### Logs Importantes
 
 ```
-[WhatsAppWebhook] Token extraído da mensagem
-→ Token foi detectado com sucesso
+[WhatsAppWebhook] Autenticação bem-sucedida
+→ Webhook autenticado com sucesso
 
-[WhatsAppWebhook] Agendamento não encontrado ou já processado
-→ Token inválido ou já usado
+[WhatsAppWebhook] Origem inválida detectada
+→ Mensagem não é de WhatsApp válido
 
-[WhatsAppWebhook] Agendamento atualizado
+[WhatsAppWebhook] Token não encontrado na mensagem
+→ Cliente não enviou token
+
+[WhatsAppWebhook] Token expirado
+→ Token passou de 48h
+
+[WhatsAppWebhook] Agendamento não encontrado
+→ Token inválido ou já processado
+
+[WhatsAppWebhook] Agendamento atualizado com sucesso
 → Confirmação/cancelamento bem-sucedido
 ```
 
-### Métricas Sugeridas
+### Métricas de Segurança
+
+Consultas úteis para monitoramento:
+
+```sql
+-- Eventos suspeitos nas últimas 24h
+SELECT event_type, COUNT(*) as total
+FROM security_logs
+WHERE created_at > NOW() - INTERVAL '24 hours'
+GROUP BY event_type
+ORDER BY total DESC;
+
+-- IPs com muitas tentativas suspeitas
+SELECT ip_address, COUNT(*) as attempts
+FROM security_logs
+WHERE event_type LIKE 'webhook_invalid%'
+  AND created_at > NOW() - INTERVAL '24 hours'
+GROUP BY ip_address
+HAVING COUNT(*) > 10
+ORDER BY attempts DESC;
+
+-- Taxa de sucesso de confirmações
+SELECT 
+  SUM(CASE WHEN event_type = 'webhook_confirmation_success' THEN 1 ELSE 0 END) as successes,
+  SUM(CASE WHEN event_type LIKE 'webhook_invalid%' THEN 1 ELSE 0 END) as failures,
+  COUNT(*) as total
+FROM security_logs
+WHERE created_at > NOW() - INTERVAL '24 hours';
+```
+
+### Métricas Recomendadas
 
 - Taxa de confirmação por token
 - Tempo médio entre envio e resposta
 - Tokens inválidos detectados
 - Tentativas de reutilização
+- Taxa de expiração de tokens
+- Tentativas de acesso não autorizado
 
 ## 🎨 Frontend (Opcional)
 
@@ -336,20 +439,39 @@ Para exibir o token no painel administrativo:
 ## ✅ Checklist de Implementação
 
 - [x] Campo `confirmation_token` adicionado ao schema
+- [x] Campo `confirmation_token_expires_at` adicionado
+- [x] Tabela `security_logs` criada
 - [x] Migração aplicada no banco de dados
 - [x] Função `generateConfirmationToken()` criada
-- [x] Token gerado ao criar agendamento
+- [x] Token gerado ao criar agendamento com expiração
 - [x] Token incluído na mensagem WhatsApp
-- [x] Webhook extrai token da resposta
+- [x] Webhook extrai e valida token (OBRIGATÓRIO)
 - [x] Validação dupla (token + telefone)
+- [x] Validação de origem da mensagem
+- [x] Validação de expiração do token
+- [x] Autenticação do webhook (API Key)
+- [x] Rate limiting no webhook
+- [x] Logging de tentativas suspeitas
+- [x] Mascaramento de dados sensíveis
+- [x] Respostas genéricas (não expõe detalhes)
 - [x] Reenvio gera token se necessário
 - [x] Logs detalhados implementados
-- [x] Documentação completa
+- [x] Documentação completa de segurança
+- [x] Guia de troubleshooting
 
-## 🚀 Próximas Melhorias
+## 🚀 Melhorias Futuras
 
-- [ ] Expiração de token após X horas
+- [ ] Dashboard de segurança em tempo real
+- [ ] Alertas automáticos via email/Slack
 - [ ] Regenerar token ao reagendar
-- [ ] Histórico de tentativas de confirmação
+- [ ] Histórico de tentativas por agendamento
 - [ ] Analytics de taxa de confirmação
 - [ ] Notificação ao admin sobre confirmações
+- [ ] Blacklist automática de IPs suspeitos
+- [ ] Relatórios mensais de segurança
+
+## 📚 Documentação Adicional
+
+- **Segurança:** Veja `WEBHOOK_SECURITY.md` para detalhes completos sobre segurança
+- **Evolution API:** Veja `EVOLUTION_API_SETUP.md` para configuração
+- **Webhook:** Veja `WEBHOOK_SETUP_GUIDE.md` para setup passo a passo

@@ -1,0 +1,22 @@
+# Dockerfile para Desenvolvimento (Backend)
+FROM node:20-alpine
+
+RUN apk add --no-cache libc6-compat openssl
+
+WORKDIR /app
+
+# Copiar package.json
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Instalar TODAS as dependências (incluindo dev)
+RUN npm install
+
+# Copiar código (será sobrescrito pelo volume)
+COPY . .
+
+# Expor porta
+EXPOSE 3001
+
+# Comando será sobrescrito no docker-compose
+CMD ["npm", "run", "dev"]

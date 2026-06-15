@@ -1,0 +1,19 @@
+# Dockerfile para Desenvolvimento (Frontend)
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copiar package.json
+COPY package*.json ./
+
+# Instalar dependências
+RUN npm install
+
+# Copiar código (será sobrescrito pelo volume)
+COPY . .
+
+# Expor porta do Vite
+EXPOSE 5173
+
+# Comando será sobrescrito no docker-compose
+CMD ["npm", "run", "dev"]

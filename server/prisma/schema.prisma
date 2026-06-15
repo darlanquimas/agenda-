@@ -81,23 +81,24 @@ model Client {
 }
 
 model Appointment {
-  id                 Int      @id @default(autoincrement())
-  tenant_id          Int
-  client_id          Int
-  professional_id    Int?
-  service_id         Int?
-  title              String
-  description        String?
-  scheduled_at       DateTime
-  status             String   @default("scheduled")
-  executor           String?
-  result             String?
-  customer_name      String?
-  customer_email     String?
-  customer_phone     String?
-  confirmation_token String?  @unique
-  created_at         DateTime @default(now())
-  updated_at         DateTime @updatedAt
+  id                             Int       @id @default(autoincrement())
+  tenant_id                      Int
+  client_id                      Int
+  professional_id                Int?
+  service_id                     Int?
+  title                          String
+  description                    String?
+  scheduled_at                   DateTime
+  status                         String    @default("scheduled")
+  executor                       String?
+  result                         String?
+  customer_name                  String?
+  customer_email                 String?
+  customer_phone                 String?
+  confirmation_token             String?   @unique
+  confirmation_token_expires_at  DateTime?
+  created_at                     DateTime  @default(now())
+  updated_at                     DateTime  @updatedAt
 
   tenant       Tenant        @relation(fields: [tenant_id], references: [id])
   client       Client        @relation(fields: [client_id], references: [id])
@@ -241,4 +242,20 @@ model WhatsAppConfig {
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@map("whatsapp_config")
+}
+
+model SecurityLog {
+  id          Int      @id @default(autoincrement())
+  event_type  String
+  ip_address  String?
+  user_agent  String?
+  tenant_id   Int?
+  user_id     Int?
+  details     String?
+  created_at  DateTime @default(now())
+
+  @@index([event_type])
+  @@index([created_at])
+  @@index([tenant_id])
+  @@map("security_logs")
 }

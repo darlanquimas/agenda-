@@ -15,3 +15,9 @@ export const loginLimiter = rateLimit({ ...baseOptions, max: config.rateLimitMax
 export const bookingLimiter = rateLimit({ ...baseOptions, max: config.rateLimitMaxBooking });
 export const apiLimiter = rateLimit({ ...baseOptions, max: config.rateLimitMaxApi });
 export const twoFactorLimiter = rateLimit({ ...baseOptions, max: 10 });
+export const webhookLimiter = rateLimit({ 
+  ...baseOptions, 
+  max: 100, // 100 requisições por janela
+  windowMs: 60 * 1000, // 1 minuto
+  message: { error: 'Muitas requisições no webhook. Tente novamente mais tarde.' },
+});

@@ -1,0 +1,57 @@
+# Dockerfile para o Backend (Node.js + TypeScript)
+FROM node:20-alpine AS base
+
+# Instalar dependências do sistema necessárias
+RUN apk add --no-cache libc6-compat openssl
+
+WORKDIR /app
+
+# Copiar apenas arquivos de dependências primeiro (melhor cache)
+COPY package*.json ./
+COPY prisma ./prisma/
+
+# Instalar dependências
+RUN npm ci --only=production && npm cache clean --force
+
+# Gerar cliente Prisma
+RUN npx prisma generate
+
+# Copiar código fonte
+COPY . .
+
+# Build da aplicação TypeScript
+RUN npm run build
+
+# Stage de produção (menor imagem final)
+FROM node:20-alpine AS production
+
+RUN apk add --no-cache libc6-compat openssl
+
+WORKDIR /app
+
+# Copiar node_modules e arquivos gerados do stage anterior
+COPY --from=base /app/node_modules ./node_modules
+COPY --from=base /app/dist ./dist
+COPY --from=base /app/generated ./generated
+COPY --from=base /app/prisma ./prisma
+COPY --from=base /app/package*.json ./
+
+# Criar diretório de logs
+RUN mkdir -p logs
+
+# Usuário não-root para segurança
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 && \
+    chown -R nodejs:nodejs /app
+
+USER nodejs
+
+# Expor porta
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Comando de inicialização
+CMD ["npm", "start"]

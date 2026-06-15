@@ -80,6 +80,12 @@ const config = {
   evolutionApiUrl: process.env.EVOLUTION_API_URL ?? '',
   evolutionApiKey: process.env.EVOLUTION_API_KEY ?? '',
   webhookBaseUrl: process.env.WEBHOOK_BASE_URL ?? `http://localhost:${Number(process.env.PORT) || 3001}`,
+  
+  // Webhook Security
+  webhookSecret: process.env.WEBHOOK_SECRET ?? '',
+  
+  // Token Configuration
+  confirmationTokenExpirationHours: Number(process.env.CONFIRMATION_TOKEN_EXPIRATION_HOURS) || 48,
 };
 
 export default config;

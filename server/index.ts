@@ -2,7 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import config from './config';
-import { loginLimiter, bookingLimiter, apiLimiter, twoFactorLimiter } from './middleware/rateLimit';
+import { loginLimiter, bookingLimiter, apiLimiter, twoFactorLimiter, webhookLimiter } from './middleware/rateLimit';
+import { webhookAuth } from './middleware/webhookAuth';
 import resolveTenant from './middleware/resolveTenant';
 import { sanitizeMiddleware } from './middleware/sanitize';
 import { requestLogger } from './lib/logger';
@@ -73,8 +74,8 @@ app.use('/api/booking/:tenantSlug', (req, _res, next) => {
   next();
 });
 
-// Webhook do WhatsApp (sem autenticação)
-app.use('/webhook/whatsapp', require('./routes/whatsapp-webhook').default);
+// Webhook do WhatsApp (com autenticação e rate limiting)
+app.use('/webhook/whatsapp', webhookLimiter, webhookAuth, require('./routes/whatsapp-webhook').default);
 
 app.use('/api/auth', require('./routes/auth').default);
 app.use('/api/auth', require('./routes/refresh').default);

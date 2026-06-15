@@ -1,0 +1,58 @@
+services:
+
+  # Backend (Node.js + Express)
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: agenda-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${BACKEND_PORT:-3001}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      COOKIE_SECRET: ${COOKIE_SECRET}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-lax}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
+      ENABLE_CSRF: ${ENABLE_CSRF:-true}
+      ENABLE_2FA: ${ENABLE_2FA:-true}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost}
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      WEBHOOK_BASE_URL: ${WEBHOOK_BASE_URL:-http://localhost}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      CONFIRMATION_TOKEN_EXPIRATION_HOURS: ${CONFIRMATION_TOKEN_EXPIRATION_HOURS:-48}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - backend_logs:/app/logs
+    ports:
+      - "${BACKEND_PORT:-3001}:3001"
+    networks:
+      - agenda-network
+    command: sh -c "npx prisma migrate deploy && npm start"
+
+  # Frontend (React + Nginx)
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: agenda-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    networks:
+      - prod_network
+
+volumes:
+  backend_logs:
+    driver: local
+
+networks:
+  prod_network:
+    external: true
+

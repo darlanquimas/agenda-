@@ -4,6 +4,7 @@ import { markPublic } from '../middleware/publicRoute';
 import { getAvailableSlots, validateBookingRequest } from '../services/bookingValidation';
 import whatsappService from '../services/whatsappService';
 import { generateUniqueToken } from '../lib/tokenGenerator';
+import config from '../config';
 
 const router = createRouter();
 
@@ -101,6 +102,10 @@ router.post('/', ...markPublic(async (req, res) => {
         return !!existing;
       });
 
+      // Calcular data de expiração do token (padrão: 48h)
+      const tokenExpiresAt = new Date();
+      tokenExpiresAt.setHours(tokenExpiresAt.getHours() + config.confirmationTokenExpirationHours);
+
       const appt = await tx.appointment.create({
         data: {
           tenant_id: tenantId,
@@ -115,6 +120,7 @@ router.post('/', ...markPublic(async (req, res) => {
           customer_email: customer_email ? String(customer_email) : null,
           customer_phone: customer_phone ? String(customer_phone) : null,
           confirmation_token: confirmationToken,
+          confirmation_token_expires_at: tokenExpiresAt,
         },
       });
 
