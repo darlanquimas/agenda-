@@ -40,8 +40,8 @@ const jwtRefreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN ?? '7d';
 const config = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   isProduction,
-  port: Number(process.env.PORT) || 3001,
-  clientUrl: process.env.CLIENT_URL ?? 'http://localhost:5173',
+  port: Number(process.env.PORT) || 3009,
+  clientUrl: process.env.CLIENT_URL ?? 'http://localhost:8075',
   
   // JWT Configuration
   jwtSecret,
@@ -79,7 +79,7 @@ const config = {
   // Evolution API Configuration
   evolutionApiUrl: process.env.EVOLUTION_API_URL ?? '',
   evolutionApiKey: process.env.EVOLUTION_API_KEY ?? '',
-  webhookBaseUrl: process.env.WEBHOOK_BASE_URL ?? `http://localhost:${Number(process.env.PORT) || 3001}`,
+  webhookBaseUrl: process.env.WEBHOOK_BASE_URL ?? `http://localhost:${Number(process.env.PORT) || 3009}`,
   
   // Webhook Security
   webhookSecret: process.env.WEBHOOK_SECRET ?? '',

@@ -117,16 +117,36 @@ npm run dev
 
 | Serviço | URL |
 |---|---|
-| Frontend (admin) | http://localhost:5173 |
-| Backend (API) | http://localhost:3001 |
-| Agendamento público | http://localhost:5173/book/demo |
+| Frontend (admin) | http://localhost:8075 |
+| Backend (API) | http://localhost:3009 |
+| Agendamento público | http://localhost:8075/book/demo |
 
 Para rodar separadamente:
 
 ```bash
-npm run dev:server   # Apenas o backend (porta 3001)
-npm run dev:client   # Apenas o frontend (porta 5173)
+npm run dev:server   # Apenas o backend (porta 3009)
+npm run dev:client   # Apenas o frontend (porta 8075)
 ```
+
+### Produção
+
+Em ambiente de produção, a aplicação roda com os seguintes domínios:
+
+| Serviço | URL de Produção |
+|---|---|
+| Frontend (admin) | https://agendaplus.dquimas.com.br |
+| Backend (API) | https://api-agenda.dquimas.com.br |
+| Agendamento público | https://agendaplus.dquimas.com.br/book/demo |
+
+**Configurações importantes para produção:**
+
+- `CLIENT_URL=https://agendaplus.dquimas.com.br`
+- `WEBHOOK_BASE_URL=https://api-agenda.dquimas.com.br`
+- `COOKIE_DOMAIN=.dquimas.com.br` (já configurado)
+- `COOKIE_SAME_SITE=strict`
+- `NODE_ENV=production`
+
+Para deploy via Docker, consulte `README.docker.md`.
 
 ### Primeiro acesso
 
@@ -137,7 +157,7 @@ Após rodar o seed, os seguintes usuários estarão disponíveis:
 | Super admin (plataforma) | super@agendaplus.com | super123 | `/platform` — todas as organizações |
 | Admin do tenant demo | admin@agendaplus.com | admin123 | Painel do tenant `demo` |
 
-Agendamento público: `http://localhost:5173/book/demo` (slug da organização).
+Agendamento público: `http://localhost:8075/book/demo` (slug da organização).
 
 ### Permissões de usuários
 
@@ -340,8 +360,8 @@ cp server/.env.example server/.env
 | Variável | Descrição | Padrão (dev) |
 |---|---|---|
 | `NODE_ENV` | `development` ou `production` | `development` |
-| `PORT` | Porta da API | `3001` |
-| `CLIENT_URL` | Origem permitida no CORS | `http://localhost:5173` |
+| `PORT` | Porta da API | `3009` |
+| `CLIENT_URL` | Origem permitida no CORS | `http://localhost:8075` |
 | `DATABASE_URL` | URL de conexão PostgreSQL | `postgresql://user:password@localhost:5432/baba_db` |
 
 ### JWT e Cookies

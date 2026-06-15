@@ -155,7 +155,7 @@ Pode acontecer se:
 Solução:
 ```env
 # server/.env
-CLIENT_URL=http://localhost:5173
+CLIENT_URL=http://localhost:8075
 COOKIE_DOMAIN=  # deixe vazio em desenvolvimento
 ```
 

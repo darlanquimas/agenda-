@@ -13,7 +13,7 @@ RUN npm install
 COPY . .
 
 # Expor porta do Vite
-EXPOSE 5173
+EXPOSE 8075
 
 # Comando será sobrescrito no docker-compose
 CMD ["npm", "run", "dev"]

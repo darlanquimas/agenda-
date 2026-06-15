@@ -31,9 +31,15 @@ docker-compose up -d
 
 ### 3️⃣ Acessar
 
-- **Frontend**: http://localhost
-- **Backend API**: http://localhost:3001/api
-- **Health Check**: http://localhost:3001/api/health
+**Desenvolvimento:**
+- **Frontend**: http://localhost:8075
+- **Backend API**: http://localhost:3009/api
+- **Health Check**: http://localhost:3009/api/health
+
+**Produção:**
+- **Frontend**: https://agendaplus.dquimas.com.br
+- **Backend API**: https://api-agenda.dquimas.com.br/api
+- **Health Check**: https://api-agenda.dquimas.com.br/api/health
 
 **Credenciais padrão:**
 - Email: `super@agendaplus.com`
@@ -122,10 +128,16 @@ JWT_SECRET=<gerar com: openssl rand -hex 32>
 COOKIE_SECRET=<gerar com: openssl rand -hex 32>
 WEBHOOK_SECRET=<gerar com: openssl rand -hex 32>
 
+# URLs de Produção
+CLIENT_URL=https://agendaplus.dquimas.com.br
+WEBHOOK_BASE_URL=https://api-agenda.dquimas.com.br
+
+# Cookie Domain
+COOKIE_DOMAIN=.dquimas.com.br
+
 # WhatsApp (opcional)
 EVOLUTION_API_URL=https://sua-evolution-api.com
 EVOLUTION_API_KEY=seu_api_key
-WEBHOOK_BASE_URL=https://seu-dominio.com
 ```
 
 ## 🔧 Troubleshooting
@@ -230,11 +242,14 @@ kubectl apply -f .
 ### Health Checks
 
 ```bash
-# Backend
-curl http://localhost:3001/api/health
+# Backend (desenvolvimento)
+curl http://localhost:3009/api/health
 
-# Frontend
-curl http://localhost/
+# Backend (produção)
+curl https://api-agenda.dquimas.com.br/api/health
+
+# Frontend (desenvolvimento)
+curl http://localhost:8075/
 
 # Verificar todos
 docker-compose ps
