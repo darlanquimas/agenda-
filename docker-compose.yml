@@ -32,7 +32,7 @@ services:
       - "127.0.0.1:${BACKEND_PORT:-3009}:3009"
     networks:
       - prod_network
-    command: sh -c "npx prisma migrate deploy && npm start"
+    command: sh -c "npx prisma migrate deploy && npx tsx index.ts"
 
   # Frontend (React + Nginx)
   frontend:
