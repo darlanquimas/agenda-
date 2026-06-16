@@ -38,21 +38,23 @@ model User {
   role                    String    @default("admin")
   active                  Boolean   @default(true)
   tenant_id               Int?
+  professional_id         Int?      @unique
   created_at              DateTime  @default(now())
-  
+
   two_factor_secret       String?
   two_factor_enabled      Boolean   @default(false)
   two_factor_backup_codes String?
-  
+
   refresh_token_version   Int       @default(0)
   last_login_at           DateTime?
   password_changed_at     DateTime  @default(now())
-  
+
   failed_login_attempts   Int       @default(0)
   locked_until            DateTime?
   account_locked          Boolean   @default(false)
 
   tenant       Tenant?       @relation(fields: [tenant_id], references: [id])
+  professional Professional? @relation(fields: [professional_id], references: [id])
   activity_log ActivityLog[]
 
   @@index([email])
@@ -150,6 +152,7 @@ model Professional {
   updated_at DateTime @updatedAt
 
   tenant       Tenant                  @relation(fields: [tenant_id], references: [id])
+  user         User?
   specialties  ProfessionalSpecialty[]
   services     ProfessionalService[]
   availability Availability[]

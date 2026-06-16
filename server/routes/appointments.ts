@@ -36,6 +36,9 @@ router.get('/', async (req, res) => {
   const tf = tenantFilter(req.user);
 
   const where: Record<string, unknown> = { ...tf };
+  if (req.user.role === 'professional') {
+    where.professional_id = req.user.professional_id ?? -1;
+  }
   if (q) {
     where.OR = [
       { title: { contains: q, mode: 'insensitive' } },
@@ -92,6 +95,7 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const { client_id, title, description, scheduled_at, executor, professional_id } = req.body as Record<string, string>;
   if (!client_id || !title || !scheduled_at) {
     return res.status(400).json({ error: 'client_id, title e scheduled_at são obrigatórios' });
@@ -132,6 +136,7 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const id = parseId(req.params.id, 'Agendamento');
   const tf = tenantFilter(req.user);
   const app = await prisma.appointment.findFirst({ where: { id, ...tf } });
@@ -141,7 +146,8 @@ router.put('/:id', async (req, res) => {
   if (status && !VALID_STATUS.includes(status)) return res.status(400).json({ error: 'Status inválido' });
 
   const newScheduledAt = scheduled_at ? new Date(scheduled_at) : app.scheduled_at;
-  if (scheduled_at && newScheduledAt <= new Date()) {
+  const dateActuallyChanged = scheduled_at != null && newScheduledAt.getTime() !== app.scheduled_at.getTime();
+  if (dateActuallyChanged && newScheduledAt <= new Date()) {
     return res.status(400).json({ error: 'Não é possível agendar em data/hora passada' });
   }
 
@@ -160,7 +166,7 @@ router.put('/:id', async (req, res) => {
   }
 
   // Verificar se houve alteração na data/hora
-  const dateTimeChanged = scheduled_at && new Date(scheduled_at).getTime() !== app.scheduled_at.getTime();
+  const dateTimeChanged = dateActuallyChanged;
   
   // Se a data/hora mudou, voltar para status 'pending' e gerar novo token
   let newStatus = status ?? app.status;
@@ -232,6 +238,7 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const id = parseId(req.params.id, 'Agendamento');
   const tf = tenantFilter(req.user);
   const app = await prisma.appointment.findFirst({ where: { id, ...tf } });

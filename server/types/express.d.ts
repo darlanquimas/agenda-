@@ -6,6 +6,7 @@ export interface AuthUser {
   email: string;
   role: string;
   tenant_id: number | null;
+  professional_id: number | null;
   active: boolean;
   tenant_slug: string | null;
   tenant_name: string | null;

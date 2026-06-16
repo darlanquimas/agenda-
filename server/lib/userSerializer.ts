@@ -12,6 +12,7 @@ export function serializeUser(user: AuthUser): SerializedUser {
     email: user.email,
     role: user.role,
     tenant_id: user.tenant_id,
+    professional_id: user.professional_id,
     tenant_slug: user.tenant_slug ?? null,
     tenant_name: user.tenant_name ?? null,
     active: user.active,

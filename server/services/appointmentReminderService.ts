@@ -27,8 +27,26 @@ export class AppointmentReminderService {
     }).format(date);
   }
 
+  private async resolveInstance(tenantId: number, defaultInstanceId: number | null) {
+    let instance = null;
+    if (defaultInstanceId) {
+      instance = await prisma.whatsAppInstance.findFirst({
+        where: { id: defaultInstanceId, tenant_id: tenantId, status: 'open' },
+      });
+    }
+    if (!instance) {
+      instance = await prisma.whatsAppInstance.findFirst({
+        where: { tenant_id: tenantId, status: 'open' },
+        orderBy: { connected_at: 'desc' },
+      });
+    }
+    return instance;
+  }
+
   /**
-   * Verifica e envia lembretes para agendamentos pendentes
+   * Verifica agendamentos pendentes:
+   * - Cancela e notifica os que estão a 1h ou menos do horário sem confirmação
+   * - Envia lembrete para os demais criados há mais de 20 minutos
    */
   private async checkPendingAppointments(): Promise<void> {
     if (this.isRunning) {
@@ -37,29 +55,20 @@ export class AppointmentReminderService {
     }
 
     this.isRunning = true;
-    
+
     try {
-      // Buscar agendamentos pendentes há mais de 20 minutos
-      const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000);
-      
+      const now = new Date();
+      const twentyMinutesAgo = new Date(now.getTime() - 20 * 60 * 1000);
+      const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+
       const pendingAppointments = await prisma.appointment.findMany({
-        where: {
-          status: 'pending',
-          created_at: {
-            lte: twentyMinutesAgo,
-          },
-          // Verificar se já não foi enviado lembrete (podemos adicionar um campo reminder_sent_at se quiser)
-        },
+        where: { status: 'pending' },
         include: {
-          tenant: {
-            include: {
-              whatsapp_config: true,
-            },
-          },
+          tenant: { include: { whatsapp_config: true } },
           service: true,
           professional: true,
         },
-        take: 50, // Limitar para não sobrecarregar
+        take: 50,
       });
 
       if (pendingAppointments.length === 0) {
@@ -74,63 +83,66 @@ export class AppointmentReminderService {
       for (const appointment of pendingAppointments) {
         try {
           const config = appointment.tenant.whatsapp_config;
-          
-          if (!config || !config.send_confirmation) {
-            continue;
-          }
+          const isWithinOneHour = appointment.scheduled_at <= oneHourFromNow;
+          const isOldEnoughForReminder = appointment.created_at <= twentyMinutesAgo;
 
-          // Buscar instância conectada
-          let instance = null;
-          
-          if (config.default_instance_id) {
-            instance = await prisma.whatsAppInstance.findFirst({
-              where: {
-                id: config.default_instance_id,
-                tenant_id: appointment.tenant_id,
-                status: 'open',
-              },
+          if (isWithinOneHour) {
+            // Cancelar automaticamente por não confirmação
+            await prisma.appointment.update({
+              where: { id: appointment.id },
+              data: { status: 'cancelled' },
             });
-          }
 
-          if (!instance) {
-            instance = await prisma.whatsAppInstance.findFirst({
-              where: {
-                tenant_id: appointment.tenant_id,
-                status: 'open',
-              },
-              orderBy: { connected_at: 'desc' },
-            });
-          }
-
-          if (!instance) {
-            logger.warn('[ReminderService] Nenhuma instância conectada', {
-              tenantId: appointment.tenant_id,
+            logger.info('[ReminderService] Agendamento cancelado por não confirmação', {
               appointmentId: appointment.id,
+              tenantId: appointment.tenant_id,
+              scheduledAt: appointment.scheduled_at,
             });
-            continue;
+
+            if (config?.send_confirmation && appointment.customer_phone) {
+              const instance = await this.resolveInstance(appointment.tenant_id, config.default_instance_id);
+              if (instance) {
+                const msg = `❌ *Agendamento Cancelado*\n\nOlá ${appointment.customer_name}!\n\nSeu agendamento não foi confirmado e foi cancelado automaticamente pois faltava menos de 1 hora para o horário marcado.\n\n📅 Data: ${this.formatDate(appointment.scheduled_at)}\n🕐 Horário: ${this.formatTime(appointment.scheduled_at)}\n📍 Serviço: ${appointment.service?.name || 'Não especificado'}\n\nSe desejar reagendar, entre em contato conosco.`;
+                await evolutionApiService.sendTextMessage(
+                  instance.api_instance_name ?? instance.instance_name,
+                  appointment.customer_phone,
+                  msg
+                );
+                logger.info('[ReminderService] Notificação de cancelamento automático enviada', {
+                  appointmentId: appointment.id,
+                });
+              }
+            }
+          } else if (isOldEnoughForReminder) {
+            // Enviar lembrete de confirmação
+            if (!config?.send_confirmation || !appointment.customer_phone) continue;
+
+            const instance = await this.resolveInstance(appointment.tenant_id, config.default_instance_id);
+            if (!instance) {
+              logger.warn('[ReminderService] Nenhuma instância conectada', {
+                tenantId: appointment.tenant_id,
+                appointmentId: appointment.id,
+              });
+              continue;
+            }
+
+            const message = `🔔 *Lembrete de Confirmação*\n\nOlá ${appointment.customer_name}!\n\nNotamos que você ainda não confirmou seu agendamento:\n\n📅 Data: ${this.formatDate(appointment.scheduled_at)}\n🕐 Horário: ${this.formatTime(appointment.scheduled_at)}\n📍 Serviço: ${appointment.service?.name || 'Não especificado'}\n👤 Profissional: ${appointment.professional?.name || 'Não especificado'}\n\n⚠️ *Por favor, confirme seu agendamento:*\nResponda esta mensagem com:\n✅ *SIM* - para confirmar\n❌ *NÃO* - para cancelar`;
+
+            await evolutionApiService.sendTextMessage(
+              instance.api_instance_name ?? instance.instance_name,
+              appointment.customer_phone,
+              message
+            );
+
+            logger.info('[ReminderService] Lembrete enviado', {
+              appointmentId: appointment.id,
+              tenantId: appointment.tenant_id,
+            });
           }
 
-          // Montar mensagem de lembrete
-          const message = `🔔 *Lembrete de Confirmação*\n\nOlá ${appointment.customer_name}!\n\nNotamos que você ainda não confirmou seu agendamento:\n\n📅 Data: ${this.formatDate(appointment.scheduled_at)}\n🕐 Horário: ${this.formatTime(appointment.scheduled_at)}\n📍 Serviço: ${appointment.service?.name || 'Não especificado'}\n👤 Profissional: ${appointment.professional?.name || 'Não especificado'}\n\n⚠️ *Por favor, confirme seu agendamento:*\nResponda esta mensagem com:\n✅ *SIM* - para confirmar\n❌ *NÃO* - para cancelar`;
-
-          // Enviar lembrete
-          await evolutionApiService.sendTextMessage(
-            instance.api_instance_name ?? instance.instance_name,
-            appointment.customer_phone,
-            message
-          );
-
-          logger.info('[ReminderService] Lembrete enviado', {
-            appointmentId: appointment.id,
-            tenantId: appointment.tenant_id,
-            clientPhone: appointment.customer_phone,
-          });
-
-          // Adicionar pequeno delay entre envios para não sobrecarregar
           await new Promise(resolve => setTimeout(resolve, 1000));
-          
         } catch (error: any) {
-          logger.error('[ReminderService] Erro ao enviar lembrete', {
+          logger.error('[ReminderService] Erro ao processar agendamento pendente', {
             appointmentId: appointment.id,
             error: error.message,
           });

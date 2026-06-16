@@ -10,6 +10,7 @@ export const USER_SELECT = {
   email: true,
   role: true,
   tenant_id: true,
+  professional_id: true,
   active: true,
   account_locked: true,
   locked_until: true,
@@ -23,6 +24,7 @@ export function rowToAuthUser(row: {
   email: string;
   role: string;
   tenant_id: number | null;
+  professional_id: number | null;
   active: boolean;
   tenant: { slug: string; name: string } | null;
 }): AuthUser {
@@ -32,6 +34,7 @@ export function rowToAuthUser(row: {
     email: row.email,
     role: row.role,
     tenant_id: row.tenant_id,
+    professional_id: row.professional_id,
     active: row.active,
     tenant_slug: row.tenant?.slug ?? null,
     tenant_name: row.tenant?.name ?? null,
