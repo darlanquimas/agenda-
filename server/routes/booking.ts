@@ -85,13 +85,19 @@ router.post('/', ...markPublic(async (req, res) => {
         throw err;
       }
 
-      let client = customer_email
-        ? await tx.client.findFirst({ where: { email: String(customer_email), tenant_id: tenantId } })
+      const sanitizedPhone = sanitizePhone(customer_phone ? String(customer_phone) : null);
+
+      let client = sanitizedPhone
+        ? await tx.client.findFirst({ where: { phone: sanitizedPhone, tenant_id: tenantId } })
         : null;
+
+      if (!client && customer_email) {
+        client = await tx.client.findFirst({ where: { email: String(customer_email), tenant_id: tenantId } });
+      }
 
       if (!client) {
         client = await tx.client.create({
-          data: { tenant_id: tenantId, name: String(customer_name), email: customer_email ? String(customer_email) : null, phone: sanitizePhone(customer_phone ? String(customer_phone) : null) },
+          data: { tenant_id: tenantId, name: String(customer_name), email: customer_email ? String(customer_email) : null, phone: sanitizedPhone },
         });
       }
 
