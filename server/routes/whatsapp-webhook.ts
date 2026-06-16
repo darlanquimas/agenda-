@@ -108,38 +108,23 @@ router.post('/:instanceName', async (req, res) => {
         return res.json({ success: true });
       }
 
-      const text = message.message?.conversation || 
+      const text = message.message?.conversation ||
                    message.message?.extendedTextMessage?.text ||
                    message.message?.buttonsResponseMessage?.selectedDisplayText ||
                    '';
 
-      logger.debug('[WhatsAppWebhook] Processando mensagem', {
-        from: maskPhone(phone),
-        textLength: text.length,
-        messageType: Object.keys(message.message || {})[0],
-      });
-
-      // VALIDAÇÃO 2: Verificar se é uma resposta de confirmação ou cancelamento
-      const textUpper = text.toUpperCase().trim();
-      const isConfirmation = textUpper.includes('SIM') || textUpper.includes('CONFIRMAR') || text.includes('✅');
-      const isCancellation = textUpper.includes('NAO') || textUpper.includes('NÃO') || textUpper.includes('CANCELAR') || text.includes('❌');
-
-      if (!isConfirmation && !isCancellation) {
-        logger.debug('[WhatsAppWebhook] Mensagem não é uma confirmação', {
-          from: maskPhone(phone),
-        });
+      // Ignorar mensagens sem texto (áudio, imagem, etc.)
+      if (!text.trim()) {
         return res.json({ success: true });
       }
 
-      logger.info('[WhatsAppWebhook] Processando confirmação via telefone', {
+      logger.debug('[WhatsAppWebhook] Processando mensagem', {
         from: maskPhone(phone),
-        isConfirmation,
-        isCancellation,
+        textLength: text.length,
       });
 
-      // VALIDAÇÃO 3: Buscar agendamento pendente pelo telefone
-      // O número vindo do WhatsApp já é dígitos puros; customer_phone pode estar formatado no banco
-      // Buscamos todos os pendentes e filtramos por correspondência dos últimos 9 dígitos
+      // VALIDAÇÃO 2: Buscar agendamento pendente pelo telefone
+      // Comparação dígitos vs dígitos para tolerar qualquer formatação no banco
       const cleanIncoming = phone.replace(/\D/g, '');
       const last9 = cleanIncoming.slice(-9);
 
@@ -155,11 +140,56 @@ router.post('/:instanceName', async (req, res) => {
       }) ?? null;
 
       if (!appointment) {
-        logger.info('[WhatsAppWebhook] Nenhum agendamento pendente encontrado para o telefone', {
+        // Sem agendamento pendente para este número — ignorar silenciosamente
+        logger.debug('[WhatsAppWebhook] Nenhum agendamento pendente para o telefone', {
           from: maskPhone(phone),
         });
         return res.json({ success: true });
       }
+
+      // VALIDAÇÃO 3: Verificar se a mensagem é SIM ou NÃO
+      const textUpper = text.toUpperCase().trim();
+      const isConfirmation = textUpper.includes('SIM') || textUpper.includes('CONFIRMAR') || text.includes('✅');
+      const isCancellation = textUpper.includes('NAO') || textUpper.includes('NÃO') || textUpper.includes('CANCELAR') || text.includes('❌');
+
+      if (!isConfirmation && !isCancellation) {
+        // Resposta inválida — reenviar instruções com os detalhes do agendamento
+        logger.debug('[WhatsAppWebhook] Resposta inválida, reenviando instruções', {
+          from: maskPhone(phone),
+          appointmentId: appointment.id,
+        });
+
+        try {
+          const instance = await prisma.whatsAppInstance.findFirst({
+            where: { tenant_id: appointment.tenant_id, status: 'open' },
+            orderBy: { connected_at: 'desc' },
+          });
+          if (instance) {
+            const reminderMsg =
+              `⏰ *Confirmação de Agendamento Pendente*\n\n` +
+              `📅 ${formatDate(appointment.scheduled_at)}\n` +
+              `🕐 ${formatTime(appointment.scheduled_at)}\n` +
+              (appointment.service?.name ? `📍 ${appointment.service.name}\n` : '') +
+              (appointment.professional?.name ? `👤 ${appointment.professional.name}\n` : '') +
+              `\nPor favor, responda *SIM* para confirmar ou *NÃO* para cancelar.`;
+            await evolutionApiService.sendTextMessage(
+              instance.api_instance_name ?? instance.instance_name,
+              phone,
+              reminderMsg,
+            );
+          }
+        } catch (err: any) {
+          logger.error('[WhatsAppWebhook] Erro ao reenviar instruções', { error: err.message });
+        }
+        return res.json({ success: true });
+      }
+
+      logger.info('[WhatsAppWebhook] Processando confirmação via telefone', {
+        from: maskPhone(phone),
+        appointmentId: appointment.id,
+        isConfirmation,
+        isCancellation,
+      });
 
       // VALIDAÇÃO 4: Verificar expiração (apenas se agendamento já passou)
       if (appointment.confirmation_token_expires_at) {
