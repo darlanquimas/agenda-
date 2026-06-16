@@ -106,8 +106,7 @@ export class WhatsAppService {
       if (isUpdate) {
         message = `⚠️ *Alteração de Agendamento*\n\nOlá ${appointmentData.clientName}!\n\nSeu agendamento foi ALTERADO:\n\n📅 Nova Data: ${this.formatDate(appointmentData.date)}\n🕐 Novo Horário: ${this.formatTime(appointmentData.date)}\n📍 Serviço: ${appointmentData.serviceName || 'Não especificado'}\n👤 Profissional: ${appointmentData.professionalName || 'Não especificado'}\n\n📌 *Por favor, confirme a nova data:*\nResponda esta mensagem com:\n✅ *SIM* - para confirmar\n❌ *NÃO* - para cancelar`;
       } else {
-        // Adicionar instrução de confirmação simples
-        message += `\n\n📌 *Para confirmar seu agendamento:*\nResponda esta mensagem com:\n✅ *SIM* - para confirmar\n❌ *NÃO* - para cancelar`;
+        message += `\n\n📌 *Para confirmar seu agendamento, responda:*\n✅ *SIM* - para confirmar\n❌ *NÃO* - para cancelar`;
       }
 
       // Enviar mensagem de texto simples (mais compatível)

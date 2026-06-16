@@ -3,12 +3,10 @@ import { Router } from 'express';
 import logger from '../lib/logger';
 import config from '../config';
 import evolutionApiService from '../services/evolutionApiService';
-import { 
-  maskPhone, 
-  maskToken, 
-  isValidWhatsAppOrigin, 
+import {
+  maskPhone,
+  isValidWhatsAppOrigin,
   extractPhoneFromJid,
-  isValidTokenFormat,
   sanitizeForLog,
 } from '../lib/securityUtils';
 
@@ -121,69 +119,34 @@ router.post('/:instanceName', async (req, res) => {
         messageType: Object.keys(message.message || {})[0],
       });
 
-      // VALIDAÇÃO 2: Verificar se é uma resposta de confirmação
+      // VALIDAÇÃO 2: Verificar se é uma resposta de confirmação ou cancelamento
       const textUpper = text.toUpperCase().trim();
       const isConfirmation = textUpper.includes('SIM') || textUpper.includes('CONFIRMAR') || text.includes('✅');
       const isCancellation = textUpper.includes('NAO') || textUpper.includes('NÃO') || textUpper.includes('CANCELAR') || text.includes('❌');
-      
+
       if (!isConfirmation && !isCancellation) {
-        logger.debug('[WhatsAppWebhook] Mensagem não é uma confirmação', { 
+        logger.debug('[WhatsAppWebhook] Mensagem não é uma confirmação', {
           from: maskPhone(phone),
         });
         return res.json({ success: true });
       }
 
-      // VALIDAÇÃO 3: Extrair e validar token (OBRIGATÓRIO)
-      const tokenMatch = text.match(/\b([A-Z0-9]{8})\b/i);
-      
-      if (!tokenMatch || !tokenMatch[1]) {
-        logger.warn('[WhatsAppWebhook] Token não encontrado na mensagem', {
-          from: maskPhone(phone),
-          textLength: text.length,
-        });
-        
-        await logSecurityEvent('webhook_missing_token', req, {
-          phone: maskPhone(phone),
-          textLength: text.length,
-        });
-        
-        // Resposta genérica (não expõe que token está faltando)
-        return res.json({ success: true });
-      }
-
-      const confirmationToken = tokenMatch[1].toUpperCase();
-
-      // VALIDAÇÃO 4: Validar formato do token
-      if (!isValidTokenFormat(confirmationToken)) {
-        logger.warn('[WhatsAppWebhook] Formato de token inválido', {
-          token: maskToken(confirmationToken),
-          from: maskPhone(phone),
-        });
-        
-        await logSecurityEvent('webhook_invalid_token_format', req, {
-          token: maskToken(confirmationToken),
-          phone: maskPhone(phone),
-        });
-        
-        return res.json({ success: true });
-      }
-
-      logger.info('[WhatsAppWebhook] Processando confirmação', {
-        token: maskToken(confirmationToken),
+      logger.info('[WhatsAppWebhook] Processando confirmação via telefone', {
         from: maskPhone(phone),
         isConfirmation,
         isCancellation,
       });
-      
-      // VALIDAÇÃO 5: Buscar agendamento com DUPLA validação (token + telefone)
+
+      // VALIDAÇÃO 3: Buscar agendamento pendente pelo telefone (últimos 9 dígitos)
+      // Autenticação garantida pelo WhatsApp — o número do remetente é verificado pela plataforma
       const appointment = await prisma.appointment.findFirst({
         where: {
-          confirmation_token: confirmationToken,  // ✅ TOKEN OBRIGATÓRIO
           customer_phone: {
-            contains: phone.slice(-9), // Últimos 9 dígitos
+            contains: phone.slice(-9),
           },
           status: 'pending',
         },
+        orderBy: { scheduled_at: 'asc' }, // mais próximo primeiro
         include: {
           tenant: true,
           service: true,
@@ -192,34 +155,23 @@ router.post('/:instanceName', async (req, res) => {
       });
 
       if (!appointment) {
-        logger.warn('[WhatsAppWebhook] Agendamento não encontrado ou já processado', { 
-          token: maskToken(confirmationToken),
+        logger.info('[WhatsAppWebhook] Nenhum agendamento pendente encontrado', {
           from: maskPhone(phone),
         });
-        
-        await logSecurityEvent('webhook_invalid_token', req, {
-          token: maskToken(confirmationToken),
-          phone: maskPhone(phone),
-          action: isConfirmation ? 'confirm' : 'cancel',
-        });
-        
-        // Resposta genérica (não expõe detalhes)
         return res.json({ success: true });
       }
 
-      // VALIDAÇÃO 6: Verificar expiração do token
+      // VALIDAÇÃO 4: Verificar expiração (apenas se agendamento já passou)
       if (appointment.confirmation_token_expires_at) {
         const now = new Date();
         if (appointment.confirmation_token_expires_at < now) {
           logger.warn('[WhatsAppWebhook] Token expirado', {
             appointmentId: appointment.id,
-            token: maskToken(confirmationToken),
             expiresAt: appointment.confirmation_token_expires_at.toISOString(),
           });
           
           await logSecurityEvent('webhook_expired_token', req, {
             appointmentId: appointment.id,
-            token: maskToken(confirmationToken),
             phone: maskPhone(phone),
             expiresAt: appointment.confirmation_token_expires_at.toISOString(),
           });
@@ -277,14 +229,13 @@ router.post('/:instanceName', async (req, res) => {
             action: 'update',
             entity: 'appointment',
             entity_id: appointment.id,
-            details: `Status alterado para ${newStatus} via WhatsApp (token: ${maskToken(confirmationToken)})`,
+            details: `Status alterado para ${newStatus} via WhatsApp (telefone: ${maskPhone(phone)})`,
           },
         });
 
         // Registrar evento de segurança (sucesso)
         await logSecurityEvent('webhook_confirmation_success', req, {
           appointmentId: appointment.id,
-          token: maskToken(confirmationToken),
           phone: maskPhone(phone),
           action: isConfirmation ? 'confirm' : 'cancel',
           newStatus,
@@ -294,7 +245,7 @@ router.post('/:instanceName', async (req, res) => {
           appointmentId: appointment.id,
           oldStatus: 'pending',
           newStatus,
-          token: maskToken(confirmationToken),
+          phone: maskPhone(phone),
         });
 
         // Enviar mensagem de resposta ao cliente
