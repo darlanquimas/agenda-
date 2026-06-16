@@ -125,7 +125,7 @@ router.post('/', ...markPublic(async (req, res) => {
           status: 'pending', // Agendamento pendente de confirmação
           customer_name: String(customer_name),
           customer_email: customer_email ? String(customer_email) : null,
-          customer_phone: customer_phone ? String(customer_phone) : null,
+          customer_phone: sanitizedPhone,
           confirmation_token: confirmationToken,
           confirmation_token_expires_at: tokenExpiresAt,
         },

@@ -137,25 +137,25 @@ router.post('/:instanceName', async (req, res) => {
         isCancellation,
       });
 
-      // VALIDAÇÃO 3: Buscar agendamento pendente pelo telefone (últimos 9 dígitos)
-      // Autenticação garantida pelo WhatsApp — o número do remetente é verificado pela plataforma
-      const appointment = await prisma.appointment.findFirst({
-        where: {
-          customer_phone: {
-            contains: phone.slice(-9),
-          },
-          status: 'pending',
-        },
-        orderBy: { scheduled_at: 'asc' }, // mais próximo primeiro
-        include: {
-          tenant: true,
-          service: true,
-          professional: true,
-        },
+      // VALIDAÇÃO 3: Buscar agendamento pendente pelo telefone
+      // O número vindo do WhatsApp já é dígitos puros; customer_phone pode estar formatado no banco
+      // Buscamos todos os pendentes e filtramos por correspondência dos últimos 9 dígitos
+      const cleanIncoming = phone.replace(/\D/g, '');
+      const last9 = cleanIncoming.slice(-9);
+
+      const pendingAppointments = await prisma.appointment.findMany({
+        where: { status: 'pending' },
+        orderBy: { scheduled_at: 'asc' },
+        include: { tenant: true, service: true, professional: true },
       });
 
+      const appointment = pendingAppointments.find((a) => {
+        const cleanStored = (a.customer_phone ?? '').replace(/\D/g, '');
+        return cleanStored.endsWith(last9);
+      }) ?? null;
+
       if (!appointment) {
-        logger.info('[WhatsAppWebhook] Nenhum agendamento pendente encontrado', {
+        logger.info('[WhatsAppWebhook] Nenhum agendamento pendente encontrado para o telefone', {
           from: maskPhone(phone),
         });
         return res.json({ success: true });
