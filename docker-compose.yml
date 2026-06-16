@@ -20,6 +20,7 @@ services:
       ENABLE_CSRF: ${ENABLE_CSRF:-true}
       ENABLE_2FA: ${ENABLE_2FA:-true}
       CLIENT_URL: ${CLIENT_URL:-http://localhost}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
       EVOLUTION_API_URL: ${EVOLUTION_API_URL}
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       WEBHOOK_BASE_URL: ${WEBHOOK_BASE_URL:-http://localhost}

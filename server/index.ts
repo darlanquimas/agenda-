@@ -42,11 +42,7 @@ app.use(helmet({
 }));
 
 app.use(cors({ 
-  origin: [
-    config.clientUrl,
-    'https://agendaplus.dquimas.com.br',
-    'https://agenda.dquimas.com.br'
-  ],
+  origin: config.corsOrigin,
   credentials: true,
   exposedHeaders: ['X-CSRF-Token'],
 }));

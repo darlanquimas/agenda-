@@ -42,6 +42,9 @@ const config = {
   isProduction,
   port: Number(process.env.PORT) || 3009,
   clientUrl: process.env.CLIENT_URL ?? 'http://localhost:8075',
+  corsOrigin: process.env.CORS_ORIGIN 
+    ? process.env.CORS_ORIGIN.split(',').map(url => url.trim())
+    : [process.env.CLIENT_URL ?? 'http://localhost:8075'],
   
   // JWT Configuration
   jwtSecret,
