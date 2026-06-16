@@ -41,8 +41,9 @@ export default function Profile() {
       const { data } = await api.post('/auth/change-password', {
         currentPassword: pwForm.currentPassword,
         newPassword: pwForm.newPassword,
+        confirmPassword: pwForm.confirmPassword,
       });
-      setPwMsg({ ok: true, text: data.message || 'Senha alterada. Faça login novamente.' });
+      setPwMsg({ ok: true, text: data.message || 'Senha alterada. Redirecionando para login…' });
       setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setTimeout(async () => {
         await logout();
@@ -57,16 +58,24 @@ export default function Profile() {
 
   return (
     <div className="max-w-lg space-y-6">
-      <div className="card p-6 space-y-4">
+      {/* Dados pessoais */}
+      <form
+        onSubmit={(e) => { e.preventDefault(); handleSaveName(); }}
+        autoComplete="on"
+        className="card p-6 space-y-4"
+      >
         <div className="flex items-center gap-2 mb-2">
           <User size={16} className="text-indigo-400" />
           <h2 className="text-sm font-semibold text-gray-200">Dados pessoais</h2>
         </div>
 
         <div>
-          <label className="label">Nome</label>
+          <label htmlFor="profile-name" className="label">Nome</label>
           <input
+            id="profile-name"
+            name="name"
             className="input"
+            autoComplete="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Seu nome"
@@ -74,8 +83,15 @@ export default function Profile() {
         </div>
 
         <div>
-          <label className="label">E-mail</label>
-          <input className="input opacity-60 cursor-not-allowed" value={user?.email ?? ''} disabled />
+          <label htmlFor="profile-email" className="label">E-mail</label>
+          <input
+            id="profile-email"
+            name="email"
+            className="input opacity-60 cursor-not-allowed"
+            autoComplete="email"
+            value={user?.email ?? ''}
+            disabled
+          />
           <p className="text-xs text-gray-600 mt-1">O e-mail não pode ser alterado por aqui</p>
         </div>
 
@@ -88,27 +104,46 @@ export default function Profile() {
 
         <div className="flex justify-end">
           <button
+            type="submit"
             className="btn-primary"
-            onClick={handleSaveName}
             disabled={nameLoading || !name.trim()}
           >
             {nameLoading && <Loader2 size={15} className="animate-spin" />}
             Salvar
           </button>
         </div>
-      </div>
+      </form>
 
-      <div className="card p-6 space-y-4">
+      {/* Alterar senha */}
+      <form
+        onSubmit={(e) => { e.preventDefault(); handleChangePassword(); }}
+        autoComplete="on"
+        className="card p-6 space-y-4"
+      >
         <div className="flex items-center gap-2 mb-2">
           <Lock size={16} className="text-indigo-400" />
           <h2 className="text-sm font-semibold text-gray-200">Alterar senha</h2>
         </div>
 
+        {/* Hidden username field helps password managers associate credentials */}
+        <input
+          type="text"
+          name="username"
+          autoComplete="username"
+          value={user?.email ?? ''}
+          readOnly
+          className="hidden"
+          aria-hidden="true"
+        />
+
         <div>
-          <label className="label">Senha atual</label>
+          <label htmlFor="current-password" className="label">Senha atual</label>
           <input
+            id="current-password"
+            name="current-password"
             className="input"
             type="password"
+            autoComplete="current-password"
             value={pwForm.currentPassword}
             onChange={(e) => setPwForm((f) => ({ ...f, currentPassword: e.target.value }))}
             placeholder="••••••••"
@@ -116,10 +151,13 @@ export default function Profile() {
         </div>
 
         <div>
-          <label className="label">Nova senha</label>
+          <label htmlFor="new-password" className="label">Nova senha</label>
           <input
+            id="new-password"
+            name="new-password"
             className="input"
             type="password"
+            autoComplete="new-password"
             value={pwForm.newPassword}
             onChange={(e) => setPwForm((f) => ({ ...f, newPassword: e.target.value }))}
             placeholder="••••••••"
@@ -127,10 +165,13 @@ export default function Profile() {
         </div>
 
         <div>
-          <label className="label">Confirmar nova senha</label>
+          <label htmlFor="confirm-password" className="label">Confirmar nova senha</label>
           <input
+            id="confirm-password"
+            name="confirm-password"
             className="input"
             type="password"
+            autoComplete="new-password"
             value={pwForm.confirmPassword}
             onChange={(e) => setPwForm((f) => ({ ...f, confirmPassword: e.target.value }))}
             placeholder="••••••••"
@@ -146,15 +187,15 @@ export default function Profile() {
 
         <div className="flex justify-end">
           <button
+            type="submit"
             className="btn-primary"
-            onClick={handleChangePassword}
             disabled={pwLoading || !pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword}
           >
             {pwLoading && <Loader2 size={15} className="animate-spin" />}
             Alterar senha
           </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }

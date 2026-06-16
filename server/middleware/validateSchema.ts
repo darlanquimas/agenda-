@@ -16,13 +16,14 @@ export function validateSchema(schema: ZodSchema, source: 'body' | 'query' | 'pa
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        const errors = error.errors.map((err) => ({
+        const issues = (error.issues ?? (error as any).errors ?? []);
+        const errors = issues.map((err: any) => ({
           field: err.path.join('.'),
           message: err.message,
         }));
 
         return res.status(400).json({
-          error: 'Erro de validação',
+          error: errors[0]?.message || 'Erro de validação',
           details: errors,
         });
       }
@@ -56,13 +57,14 @@ export function validateSchemas(schemas: {
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        const errors = error.errors.map((err) => ({
+        const issues = (error.issues ?? (error as any).errors ?? []);
+        const errors = issues.map((err: any) => ({
           field: err.path.join('.'),
           message: err.message,
         }));
 
         return res.status(400).json({
-          error: 'Erro de validação',
+          error: errors[0]?.message || 'Erro de validação',
           details: errors,
         });
       }
