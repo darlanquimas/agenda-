@@ -108,8 +108,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               {copied ? 'Link copiado!' : 'Link de agendamento'}
             </button>
           )}
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+          <button
+            onClick={() => { navigate('/profile'); onClose(); }}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors text-left"
+          >
+            <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0">
               {user?.name?.[0]?.toUpperCase()}
             </div>
             <div className="min-w-0">
@@ -117,7 +120,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <p className="text-xs text-gray-500 truncate">{user?.email}</p>
               {user?.tenant_name && <p className="text-xs text-indigo-400/80 truncate">{user.tenant_name}</p>}
             </div>
-          </div>
+          </button>
           <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-150">
             <LogOut size={17} />
             Sair

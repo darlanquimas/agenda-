@@ -183,9 +183,20 @@ export default function Appointments() {
                       <div className="w-8 h-8 bg-gray-800 border border-gray-700 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
                         <CalendarClock size={14} className="text-indigo-400" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-medium text-gray-200">{a.title}</p>
                         {a.description && <p className="text-xs text-gray-500 truncate max-w-xs">{a.description}</p>}
+                        <div className="mt-1 lg:hidden space-y-0.5">
+                          <p className="text-xs font-medium text-indigo-400">{fmtDateTime(a.scheduled_at)}</p>
+                          <div className="md:hidden flex items-center gap-1.5 text-xs text-gray-400">
+                            <User size={11} /><span className="truncate">{a.client_name}</span>
+                          </div>
+                          {a.professional_name && (
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                              <Briefcase size={11} /><span className="truncate">{a.professional_name}</span>
+                            </div>
+                          )}
+                        </div>
                         <div className="sm:hidden mt-1"><StatusBadge status={a.status} /></div>
                       </div>
                     </div>

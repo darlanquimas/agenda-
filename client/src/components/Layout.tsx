@@ -10,6 +10,7 @@ const titles: Record<string, string> = {
   '/professionals': 'Profissionais',
   '/services': 'Serviços & Especialidades',
   '/history': 'Histórico de Atividades',
+  '/profile': 'Meu Perfil',
 };
 
 export default function Layout() {

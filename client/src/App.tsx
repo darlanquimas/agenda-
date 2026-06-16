@@ -14,6 +14,7 @@ import Booking from './pages/Booking';
 import Platform from './pages/Platform';
 import TenantUsers from './pages/TenantUsers';
 import WhatsApp from './pages/WhatsApp';
+import Profile from './pages/Profile';
 import { ReactNode } from 'react';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -50,6 +51,7 @@ export default function App() {
               <Route path="users" element={<TenantUsers />} />
               <Route path="whatsapp" element={<WhatsApp />} />
               <Route path="history" element={<History />} />
+              <Route path="profile" element={<Profile />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -173,6 +173,23 @@ router.get('/me', (req, res) => {
 });
 
 /**
+ * PUT /api/auth/me
+ * Atualiza nome do usuário autenticado
+ */
+router.put('/me', async (req, res) => {
+  const { name } = req.body as { name?: string };
+  if (!name?.trim()) return res.status(400).json({ error: 'Nome obrigatório' });
+
+  const updated = await prisma.user.update({
+    where: { id: req.user.id },
+    data: { name: name.trim() },
+    select: USER_SELECT,
+  });
+
+  res.json(serializeUser(rowToAuthUser(updated)));
+});
+
+/**
  * POST /api/auth/change-password
  * Altera senha do usuário autenticado
  */
