@@ -149,17 +149,18 @@ router.post('/webhook/setup/:instanceId', async (req, res) => {
       return res.status(404).json({ error: 'Instância não encontrada' });
     }
 
-    const webhookUrl = `${config.webhookBaseUrl}/webhook/whatsapp/${instance.instance_name}`;
+    const apiInstanceName = instance.api_instance_name ?? instance.instance_name;
+    const webhookUrl = `${config.webhookBaseUrl}/webhook/whatsapp/${apiInstanceName}`;
 
     logger.info('[WhatsAppConfig] Configurando webhook', {
       tenantId: req.user.tenant_id,
-      instanceName: instance.instance_name,
+      instanceName: apiInstanceName,
       webhookUrl,
     });
 
     // Configurar webhook na Evolution API
     const response = await axios.post(
-      `${config.evolutionApiUrl}/webhook/set/${instance.instance_name}`,
+      `${config.evolutionApiUrl}/webhook/set/${apiInstanceName}`,
       {
         webhook: {
           enabled: true,
