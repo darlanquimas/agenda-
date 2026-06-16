@@ -2,9 +2,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { Plus, Minus, Search, Pencil, Trash2, Loader2, AlertCircle, UserCheck, Clock } from 'lucide-react';
 import api from '../api/axios';
 import Modal from '../components/Modal';
+import { formatPhone } from '../lib/phone';
 
 interface AvailSlot { weekday: number; start_time: string; end_time: string }
-interface Specialty { id: number; name: string }
+interface Specialty { id: number; name: string; service_ids: number[] }
 interface Service { id: number; name: string }
 interface Professional { id: number; name: string; email: string | null; phone: string | null; bio: string | null; active: boolean; specialties: Specialty[]; services: Service[]; availability: AvailSlot[] }
 
@@ -112,14 +113,24 @@ function ProfessionalForm({ initial, allSpecialties, allServices, onSave, onCanc
 }) {
   const defaultAvailability = [1, 2, 3, 4, 5].map((wd) => ({ weekday: wd, start_time: '08:00', end_time: '18:00' }));
   const [form, setForm] = useState({
-    name: initial?.name ?? '', email: initial?.email ?? '', phone: initial?.phone ?? '', bio: initial?.bio ?? '',
+    name: initial?.name ?? '', email: initial?.email ?? '', phone: formatPhone(initial?.phone ?? ''), bio: initial?.bio ?? '',
     specialty_ids: initial?.specialties?.map((s) => s.id) ?? [],
     service_ids: initial?.services?.map((s) => s.id) ?? [],
     availability: initial?.availability?.length ? initial.availability : defaultAvailability,
   });
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const toggleId = (key: 'specialty_ids' | 'service_ids', id: number) =>
-    setForm((f) => ({ ...f, [key]: f[key].includes(id) ? f[key].filter((x) => x !== id) : [...f[key], id] }));
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm((f) => ({ ...f, [k]: k === 'phone' ? formatPhone(e.target.value) : e.target.value }));
+  const toggleService = (id: number) =>
+    setForm((f) => ({ ...f, service_ids: f.service_ids.includes(id) ? f.service_ids.filter((x) => x !== id) : [...f.service_ids, id] }));
+  const toggleSpecialty = (specialty: Specialty) =>
+    setForm((f) => {
+      const adding = !f.specialty_ids.includes(specialty.id);
+      const specialty_ids = adding ? [...f.specialty_ids, specialty.id] : f.specialty_ids.filter((x) => x !== specialty.id);
+      const service_ids = adding
+        ? [...new Set([...f.service_ids, ...specialty.service_ids])]
+        : f.service_ids;
+      return { ...f, specialty_ids, service_ids };
+    });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,7 +152,7 @@ function ProfessionalForm({ initial, allSpecialties, allServices, onSave, onCanc
         <label className="label">Especialidades</label>
         <div className="flex flex-wrap gap-2">
           {allSpecialties.map((s) => { const active = form.specialty_ids.includes(s.id); return (
-            <button key={s.id} type="button" onClick={(e) => { e.preventDefault(); toggleId('specialty_ids', s.id); }}
+            <button key={s.id} type="button" onClick={(e) => { e.preventDefault(); toggleSpecialty(s); }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${active ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-400' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'}`}>
               {s.name}
             </button>
@@ -152,7 +163,7 @@ function ProfessionalForm({ initial, allSpecialties, allServices, onSave, onCanc
         <label className="label">Serviços oferecidos</label>
         <div className="flex flex-wrap gap-2">
           {allServices.map((s) => { const active = form.service_ids.includes(s.id); return (
-            <button key={s.id} type="button" onClick={(e) => { e.preventDefault(); toggleId('service_ids', s.id); }}
+            <button key={s.id} type="button" onClick={(e) => { e.preventDefault(); toggleService(s.id); }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${active ? 'bg-purple-600/20 border-purple-500/40 text-purple-400' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'}`}>
               {s.name}
             </button>
@@ -229,7 +240,7 @@ export default function Professionals() {
                   <div className="w-11 h-11 bg-indigo-600/20 border border-indigo-500/30 rounded-xl flex items-center justify-center text-indigo-400 font-bold text-lg shrink-0">
                     {p.name[0].toUpperCase()}
                   </div>
-                  <div><p className="font-semibold text-gray-100">{p.name}</p><p className="text-xs text-gray-500">{p.email || p.phone || '—'}</p></div>
+                  <div><p className="font-semibold text-gray-100">{p.name}</p><p className="text-xs text-gray-500">{p.email || (p.phone ? formatPhone(p.phone) : '—')}</p></div>
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button onClick={() => { setFormError(''); setModal({ professional: p }); }} className="p-1.5 text-gray-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors"><Pencil size={15} /></button>

@@ -135,6 +135,7 @@ model Specialty {
 
   tenant        Tenant                  @relation(fields: [tenant_id], references: [id])
   professionals ProfessionalSpecialty[]
+  services      SpecialtyService[]
 
   @@unique([tenant_id, name])
   @@map("specialties")
@@ -184,9 +185,21 @@ model Service {
 
   tenant        Tenant               @relation(fields: [tenant_id], references: [id])
   professionals ProfessionalService[]
+  specialties   SpecialtyService[]
   appointments  Appointment[]
 
   @@map("services")
+}
+
+model SpecialtyService {
+  specialty_id Int
+  service_id   Int
+
+  specialty Specialty @relation(fields: [specialty_id], references: [id], onDelete: Cascade)
+  service   Service   @relation(fields: [service_id], references: [id], onDelete: Cascade)
+
+  @@id([specialty_id, service_id])
+  @@map("specialty_services")
 }
 
 model ProfessionalService {

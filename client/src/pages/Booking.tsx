@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { formatPhone } from '../lib/phone';
 import {
   ChevronLeft, ChevronRight, Clock, DollarSign, User,
   CalendarCheck, CheckCircle, Loader2, AlertCircle, Zap, Phone, Mail,
@@ -242,7 +243,7 @@ export default function Booking() {
                 {error && <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm"><AlertCircle size={15} />{error}</div>}
                 <div><label className="label">Nome completo *</label><input className="input" placeholder="Seu nome" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
                 <div><label className="label">Email</label><input className="input" type="email" placeholder="seu@email.com" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} /></div>
-                <div><label className="label">Telefone / WhatsApp</label><input className="input" placeholder="(00) 00000-0000" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} /></div>
+                <div><label className="label">Telefone / WhatsApp</label><input className="input" placeholder="(00) 00000-0000" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: formatPhone(e.target.value) }))} /></div>
                 <div><label className="label">Observações</label><textarea className="input resize-none" rows={3} placeholder="Alguma informação adicional..." value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} /></div>
                 <button className="btn-primary w-full justify-center py-3 mt-2" onClick={handleSubmit} disabled={submitting || !form.name}>
                   {submitting && <Loader2 size={16} className="animate-spin" />}

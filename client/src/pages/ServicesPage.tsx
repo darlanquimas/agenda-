@@ -3,13 +3,18 @@ import { Plus, Pencil, Trash2, Loader2, AlertCircle, Clock, DollarSign, Tag } fr
 import api from '../api/axios';
 import Modal from '../components/Modal';
 
-interface Service { id: number; name: string; description: string | null; duration_minutes: number; price: number; active: boolean }
+interface Service { id: number; name: string; description: string | null; duration_minutes: number; price: number; active: boolean; specialty_ids: number[] }
 interface Specialty { id: number; name: string; description: string | null }
 
-function ServiceForm({ initial, onSave, onCancel, loading, error }: { initial: Partial<Service>; onSave: (f: any) => void; onCancel: () => void; loading: boolean; error: string }) {
-  const [form, setForm] = useState({ name: '', description: '', duration_minutes: 60, price: 0, ...initial });
+function ServiceForm({ initial, allSpecialties, onSave, onCancel, loading, error }: {
+  initial: Partial<Service>; allSpecialties: Specialty[];
+  onSave: (f: any) => void; onCancel: () => void; loading: boolean; error: string;
+}) {
+  const [form, setForm] = useState({ name: '', description: '', duration_minutes: 60, price: 0, specialty_ids: [] as number[], ...initial });
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
+  const toggleSpecialty = (id: number) =>
+    setForm((f) => ({ ...f, specialty_ids: f.specialty_ids.includes(id) ? f.specialty_ids.filter((x) => x !== id) : [...f.specialty_ids, id] }));
   return (
     <div className="space-y-4">
       {error && <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm"><AlertCircle size={15} />{error}</div>}
@@ -19,6 +24,22 @@ function ServiceForm({ initial, onSave, onCancel, loading, error }: { initial: P
         <div><label className="label">Duração (minutos)</label><input className="input" type="number" min={15} step={15} value={form.duration_minutes} onChange={set('duration_minutes')} /></div>
         <div><label className="label">Preço (R$)</label><input className="input" type="number" min={0} step={0.01} value={form.price} onChange={set('price')} /></div>
       </div>
+      {allSpecialties.length > 0 && (
+        <div>
+          <label className="label">Especialidades vinculadas</label>
+          <div className="flex flex-wrap gap-2">
+            {allSpecialties.map((sp) => {
+              const active = form.specialty_ids.includes(sp.id);
+              return (
+                <button key={sp.id} type="button" onClick={() => toggleSpecialty(sp.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${active ? 'bg-purple-600/20 border-purple-500/40 text-purple-400' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'}`}>
+                  {sp.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <div className="flex gap-3 justify-end pt-2">
         <button className="btn-secondary" onClick={onCancel}>Cancelar</button>
         <button className="btn-primary" onClick={() => onSave(form)} disabled={loading || !form.name}>
@@ -125,6 +146,14 @@ export default function ServicesPage() {
                       <button onClick={() => setDeleteTarget({ type: 'service', id: s.id, name: s.name })} className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 size={14} /></button>
                     </div>
                   </div>
+                  {s.specialty_ids?.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {s.specialty_ids.map((sid) => {
+                        const sp = specialties.find((x) => x.id === sid);
+                        return sp ? <span key={sid} className="px-2 py-0.5 rounded text-xs bg-purple-600/10 border border-purple-500/20 text-purple-400">{sp.name}</span> : null;
+                      })}
+                    </div>
+                  )}
                   <div className="flex items-center gap-4 text-xs text-gray-400 pt-2 border-t border-gray-800">
                     <span className="flex items-center gap-1.5"><Clock size={12} />{fmtDuration(s.duration_minutes)}</span>
                     <span className="flex items-center gap-1.5"><DollarSign size={12} />{fmtPrice(s.price)}</span>
@@ -164,7 +193,7 @@ export default function ServicesPage() {
 
       <Modal open={!!modal} onClose={() => setModal(null)} title={modal?.type === 'service' ? (modal.item ? 'Editar serviço' : 'Novo serviço') : (modal?.item ? 'Editar especialidade' : 'Nova especialidade')} size="md">
         {modal?.type === 'service'
-          ? <ServiceForm initial={(modal.item as Service) ?? {}} onSave={handleSaveService} onCancel={() => setModal(null)} loading={saving} error={formError} />
+          ? <ServiceForm initial={(modal.item as Service) ?? {}} allSpecialties={specialties} onSave={handleSaveService} onCancel={() => setModal(null)} loading={saving} error={formError} />
           : <SpecialtyForm initial={(modal?.item as Specialty) ?? {}} onSave={handleSaveSpecialty} onCancel={() => setModal(null)} loading={saving} error={formError} />
         }
       </Modal>

@@ -76,3 +76,9 @@ export function capLimit(raw: string | undefined, defaultVal = 20, max = 100): n
   const n = parseInt(raw ?? String(defaultVal), 10);
   return Math.min(Math.max(1, isNaN(n) ? defaultVal : n), max);
 }
+
+export function sanitizePhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  return digits || null;
+}

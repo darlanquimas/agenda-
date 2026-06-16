@@ -4,6 +4,7 @@ import { markPublic } from '../middleware/publicRoute';
 import { getAvailableSlots, validateBookingRequest } from '../services/bookingValidation';
 import whatsappService from '../services/whatsappService';
 import { generateUniqueToken } from '../lib/tokenGenerator';
+import { sanitizePhone } from '../lib/validate';
 import config from '../config';
 
 const router = createRouter();
@@ -90,7 +91,7 @@ router.post('/', ...markPublic(async (req, res) => {
 
       if (!client) {
         client = await tx.client.create({
-          data: { tenant_id: tenantId, name: String(customer_name), email: customer_email ? String(customer_email) : null, phone: customer_phone ? String(customer_phone) : null },
+          data: { tenant_id: tenantId, name: String(customer_name), email: customer_email ? String(customer_email) : null, phone: sanitizePhone(customer_phone ? String(customer_phone) : null) },
         });
       }
 

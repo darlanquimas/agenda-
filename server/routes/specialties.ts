@@ -7,7 +7,12 @@ const router = createRouter();
 
 router.get('/', async (req, res) => {
   const tf = tenantFilter(req.user);
-  res.json(await prisma.specialty.findMany({ where: tf, orderBy: { name: 'asc' } }));
+  const rows = await prisma.specialty.findMany({
+    where: tf,
+    orderBy: { name: 'asc' },
+    include: { services: { select: { service_id: true } } },
+  });
+  res.json(rows.map((s) => ({ ...s, service_ids: s.services.map((ss) => ss.service_id), services: undefined })));
 });
 
 router.post('/', async (req, res) => {

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Plus, Search, Pencil, Trash2, Phone, Mail, ChevronLeft, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
 import api from '../api/axios';
 import Modal from '../components/Modal';
+import { formatPhone } from '../lib/phone';
 
 interface Client {
   id: number; name: string; email: string | null; phone: string | null;
@@ -13,9 +14,9 @@ function ClientForm({ initial, onSave, onCancel, loading, error }: {
   initial: Partial<ClientFormData>; onSave: (f: ClientFormData) => void;
   onCancel: () => void; loading: boolean; error: string;
 }) {
-  const [form, setForm] = useState<ClientFormData>({ name: '', email: '', phone: '', document: '', address: '', notes: '', ...initial });
+  const [form, setForm] = useState<ClientFormData>({ name: '', email: '', phone: '', document: '', address: '', notes: '', ...initial, phone: formatPhone(initial?.phone ?? '') });
   const set = (k: keyof ClientFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+    setForm((f) => ({ ...f, [k]: k === 'phone' ? formatPhone(e.target.value) : e.target.value }));
 
   return (
     <div className="space-y-4">
@@ -106,14 +107,14 @@ export default function Clients() {
                       </div>
                       <div>
                         <p className="font-medium text-gray-200">{c.name}</p>
-                        <p className="text-xs text-gray-500 md:hidden">{c.phone || c.email || '—'}</p>
+                        <p className="text-xs text-gray-500 md:hidden">{c.phone ? formatPhone(c.phone) : c.email || '—'}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell">
                     <div className="space-y-0.5">
                       {c.email && <p className="text-gray-400 flex items-center gap-1.5"><Mail size={12} />{c.email}</p>}
-                      {c.phone && <p className="text-gray-400 flex items-center gap-1.5"><Phone size={12} />{c.phone}</p>}
+                      {c.phone && <p className="text-gray-400 flex items-center gap-1.5"><Phone size={12} />{formatPhone(c.phone)}</p>}
                     </div>
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell text-gray-400">{c.document || '—'}</td>

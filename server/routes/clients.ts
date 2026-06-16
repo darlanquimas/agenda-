@@ -1,7 +1,7 @@
 import prisma from '../lib/prisma';
 import { createRouter } from '../lib/router';
 import { tenantFilter, logActivity } from '../lib/tenantScope';
-import { parseId, capLimit, isValidEmail } from '../lib/validate';
+import { parseId, capLimit, isValidEmail, sanitizePhone } from '../lib/validate';
 
 const router = createRouter();
 
@@ -52,7 +52,7 @@ router.post('/', async (req, res) => {
   if (!tenantId) return res.status(403).json({ error: 'Super admin deve criar usuários pelo painel da plataforma' });
 
   const r = await prisma.client.create({
-    data: { tenant_id: tenantId, name, email: email ? email.trim().toLowerCase() : null, phone, document, address, notes },
+    data: { tenant_id: tenantId, name, email: email ? email.trim().toLowerCase() : null, phone: sanitizePhone(phone), document, address, notes },
   });
   await logActivity(req, 'create', 'client', r.id, `Cliente cadastrado: ${name}`);
   res.status(201).json(r);
@@ -72,7 +72,7 @@ router.put('/:id', async (req, res) => {
     data: {
       name: (name as string) ?? client.name,
       email: email !== undefined ? (email ? String(email).trim().toLowerCase() : null) : client.email,
-      phone: (phone as string) ?? client.phone,
+      phone: phone !== undefined ? sanitizePhone(phone as string) : client.phone,
       document: (document as string) ?? client.document,
       address: (address as string) ?? client.address,
       notes: (notes as string) ?? client.notes,

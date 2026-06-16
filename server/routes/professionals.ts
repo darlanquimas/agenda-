@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma';
 import { createRouter } from '../lib/router';
 import { tenantFilter, logActivity } from '../lib/tenantScope';
-import { parseId, isValidEmail, validatePassword } from '../lib/validate';
+import { parseId, isValidEmail, validatePassword, sanitizePhone } from '../lib/validate';
 
 const router = createRouter();
 
@@ -84,7 +84,7 @@ router.post('/', async (req, res) => {
   if (!specValid) return res.status(400).json({ error: 'Especialidade inválida' });
   if (!svcValid) return res.status(400).json({ error: 'Serviço inválido' });
 
-  const p = await prisma.professional.create({ data: { tenant_id: tenantId, name, email: email ? email.trim().toLowerCase() : null, phone, bio } });
+  const p = await prisma.professional.create({ data: { tenant_id: tenantId, name, email: email ? email.trim().toLowerCase() : null, phone: sanitizePhone(phone), bio } });
 
   await Promise.all([
     specialty_ids.length && prisma.professionalSpecialty.createMany({
@@ -137,7 +137,7 @@ router.put('/:id', async (req, res) => {
 
   await prisma.professional.update({
     where: { id: p.id },
-    data: { name: name ?? p.name, email: email ?? p.email, phone: phone ?? p.phone, bio: bio ?? p.bio, active: active ?? p.active },
+    data: { name: name ?? p.name, email: email ?? p.email, phone: phone !== undefined ? sanitizePhone(phone) : p.phone, bio: bio ?? p.bio, active: active ?? p.active },
   });
 
   if (specialty_ids !== undefined) {
