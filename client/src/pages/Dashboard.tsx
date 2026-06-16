@@ -3,6 +3,7 @@ import { Users, CalendarCheck, CheckCircle, XCircle, Clock, Play, TrendingUp, Ac
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, TooltipProps } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { fmtDateTimeShort } from '../lib/datetime';
 import api from '../api/axios';
 import StatusBadge from '../components/StatusBadge';
 
@@ -117,7 +118,7 @@ export default function Dashboard() {
                   <p className="text-sm text-gray-200 font-medium truncate">{a.title}</p>
                   <p className="text-xs text-gray-500 truncate">{a.client_name}</p>
                   <p className="text-xs text-gray-600 mt-0.5">
-                    {format(new Date(a.scheduled_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                    {fmtDateTimeShort(a.scheduled_at)}
                   </p>
                 </div>
               </div>

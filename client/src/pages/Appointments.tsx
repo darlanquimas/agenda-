@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight, Loader2, AlertCircle, CalendarClock, User, Briefcase, MessageCircle } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { toDateTimeLocal, fmtDateTime } from '../lib/datetime';
 import api from '../api/axios';
 import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
@@ -25,23 +24,11 @@ const STATUS_OPTIONS = [
 function AppointmentForm({ initial, onSave, onCancel, loading, error }: {
   initial: Partial<Appointment>; onSave: (f: any) => void; onCancel: () => void; loading: boolean; error: string;
 }) {
-  // Converter data UTC para formato local do datetime-local input
-  const formatDateTimeLocal = (dateString: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
-
   const [form, setForm] = useState({
     client_id: String(initial.client_id ?? ''),
     title: initial.title ?? '',
     description: initial.description ?? '',
-    scheduled_at: formatDateTimeLocal(initial.scheduled_at ?? ''),
+    scheduled_at: toDateTimeLocal(initial.scheduled_at ?? ''),
     status: initial.status ?? 'scheduled',
     executor: initial.executor ?? '',
     result: (initial as any).result ?? '',
@@ -212,7 +199,7 @@ export default function Appointments() {
                       : <span className="text-gray-600">—</span>}
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell text-gray-400 whitespace-nowrap">
-                    {format(new Date(a.scheduled_at), "dd/MM/yy HH:mm", { locale: ptBR })}
+                    {fmtDateTime(a.scheduled_at)}
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell"><StatusBadge status={a.status} /></td>
                   <td className="px-4 py-3">

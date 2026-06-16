@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { formatPhone } from '../lib/phone';
+import { parseDateLocal } from '../lib/datetime';
 import {
   ChevronLeft, ChevronRight, Clock, DollarSign, User,
   CalendarCheck, CheckCircle, Loader2, AlertCircle, Zap, Phone, Mail,
@@ -8,7 +9,7 @@ import {
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, format, isSameDay, isSameMonth,
-  isPast, isToday, addMonths, subMonths, getDay, parseISO, startOfDay,
+  isPast, isToday, addMonths, subMonths, getDay, startOfDay,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import axios from 'axios';
@@ -65,7 +66,7 @@ function MiniCalendar({ availability, selectedDate, onSelect }: { availability: 
         {days.map((day) => {
           const inMonth = isSameMonth(day, month);
           const available = inMonth && isAvailable(day);
-          const selected = selectedDate ? isSameDay(day, parseISO(selectedDate)) : false;
+          const selected = selectedDate ? isSameDay(day, parseDateLocal(selectedDate)) : false;
           const todayMark = isToday(day);
           return (
             <button key={day.toISOString()} disabled={!available} onClick={() => available && onSelect(format(day, 'yyyy-MM-dd'))}
@@ -213,7 +214,7 @@ export default function Booking() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="card p-5"><MiniCalendar availability={availability} selectedDate={selectedDate} onSelect={selectDate} /></div>
               <div className="card p-5">
-                <h3 className="text-sm font-semibold text-gray-300 mb-4">{selectedDate ? `Horários — ${format(parseISO(selectedDate), "dd 'de' MMMM", { locale: ptBR })}` : 'Selecione um dia no calendário'}</h3>
+                <h3 className="text-sm font-semibold text-gray-300 mb-4">{selectedDate ? `Horários — ${format(parseDateLocal(selectedDate), "dd 'de' MMMM", { locale: ptBR })}` : 'Selecione um dia no calendário'}</h3>
                 {loadingSlots ? <div className="flex justify-center py-8"><Loader2 size={22} className="animate-spin text-gray-600" /></div>
                   : !selectedDate ? <p className="text-gray-600 text-sm text-center py-8">← Escolha uma data</p>
                   : slots.length === 0 ? <p className="text-gray-500 text-sm text-center py-8">Nenhum horário disponível neste dia</p>
@@ -236,7 +237,7 @@ export default function Booking() {
           <div>
             <div className="flex items-center gap-3 mb-5">
               <button onClick={() => setStep(3)} className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"><ChevronLeft size={18} /></button>
-              <div><h2 className="text-lg font-semibold text-gray-100">Seus dados</h2><p className="text-sm text-gray-500">{selectedDate && format(parseISO(selectedDate), "dd/MM/yyyy", { locale: ptBR })} às {selectedTime}</p></div>
+              <div><h2 className="text-lg font-semibold text-gray-100">Seus dados</h2><p className="text-sm text-gray-500">{selectedDate && format(parseDateLocal(selectedDate), "dd/MM/yyyy", { locale: ptBR })} às {selectedTime}</p></div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
               <div className="lg:col-span-3 card p-6 space-y-4">
@@ -260,7 +261,7 @@ export default function Booking() {
                   <div className="space-y-2 pt-2 border-t border-gray-800 text-sm">
                     <div className="flex justify-between text-gray-400"><span>Serviço</span><span className="text-gray-200">{selectedService?.name}</span></div>
                     <div className="flex justify-between text-gray-400"><span>Duração</span><span className="text-gray-200">{selectedService && fmtDuration(selectedService.duration_minutes)}</span></div>
-                    <div className="flex justify-between text-gray-400"><span>Data</span><span className="text-gray-200">{selectedDate && format(parseISO(selectedDate), 'dd/MM/yyyy', { locale: ptBR })}</span></div>
+                    <div className="flex justify-between text-gray-400"><span>Data</span><span className="text-gray-200">{selectedDate && format(parseDateLocal(selectedDate), 'dd/MM/yyyy', { locale: ptBR })}</span></div>
                     <div className="flex justify-between text-gray-400"><span>Horário</span><span className="text-gray-200">{selectedTime}</span></div>
                     <div className="flex justify-between pt-2 border-t border-gray-800 font-semibold"><span className="text-gray-400">Total</span><span className="text-green-400">{selectedService && fmtPrice(selectedService.price)}</span></div>
                   </div>
@@ -281,7 +282,7 @@ export default function Booking() {
                   <div className="w-10 h-10 bg-indigo-600/20 border border-indigo-500/30 rounded-xl flex items-center justify-center text-indigo-400 font-bold">{confirmation.professional?.[0]}</div>
                   <div><p className="font-semibold text-gray-100">{confirmation.professional}</p><p className="text-xs text-gray-500">{selectedService?.name}</p></div>
                 </div>
-                <div className="flex items-center gap-3 text-sm"><CalendarCheck size={16} className="text-indigo-400 shrink-0" /><span className="text-gray-300">{selectedDate && format(parseISO(selectedDate), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })} às {selectedTime}</span></div>
+                <div className="flex items-center gap-3 text-sm"><CalendarCheck size={16} className="text-indigo-400 shrink-0" /><span className="text-gray-300">{selectedDate && format(parseDateLocal(selectedDate), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })} às {selectedTime}</span></div>
                 <div className="flex items-center gap-3 text-sm"><User size={16} className="text-indigo-400 shrink-0" /><span className="text-gray-300">{confirmation.customer_name}</span></div>
                 <div className="flex items-center gap-3 text-sm"><Clock size={16} className="text-indigo-400 shrink-0" /><span className="text-gray-300">{selectedService && fmtDuration(selectedService.duration_minutes)} · {selectedService && fmtPrice(selectedService.price)}</span></div>
               </div>
