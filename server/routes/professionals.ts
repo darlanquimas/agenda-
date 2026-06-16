@@ -22,6 +22,7 @@ async function enrichProfessional(id: number) {
       specialties: { include: { specialty: true } },
       services: { include: { service: true } },
       availability: { where: { active: true }, orderBy: { weekday: 'asc' } },
+      user: { select: { id: true, name: true, email: true } },
     },
   });
   if (!p) return null;
@@ -30,7 +31,60 @@ async function enrichProfessional(id: number) {
     specialties: p.specialties.map((ps) => ps.specialty),
     services: p.services.map((ps) => ps.service),
     availability: p.availability,
+    user: p.user ?? null,
   };
+}
+
+async function applyUserLink(
+  professionalId: number,
+  tenantId: number,
+  linkMode: 'none' | 'existing' | 'new',
+  opts: { link_user_id?: number; user_email?: string; user_password?: string; professionalName?: string },
+): Promise<{ error: string } | null> {
+  const { link_user_id, user_email, user_password, professionalName } = opts;
+
+  const currentLinked = await prisma.user.findFirst({ where: { professional_id: professionalId } });
+
+  if (linkMode === 'none') {
+    if (currentLinked) await prisma.user.update({ where: { id: currentLinked.id }, data: { professional_id: null } });
+    return null;
+  }
+
+  if (linkMode === 'existing') {
+    if (!link_user_id) return { error: 'Usuário não selecionado' };
+    const target = await prisma.user.findFirst({ where: { id: link_user_id, tenant_id: tenantId } });
+    if (!target) return { error: 'Usuário não encontrado' };
+    if (target.professional_id && target.professional_id !== professionalId) return { error: 'Usuário já vinculado a outro profissional' };
+    if (currentLinked && currentLinked.id !== link_user_id) {
+      await prisma.user.update({ where: { id: currentLinked.id }, data: { professional_id: null } });
+    }
+    await prisma.user.update({ where: { id: link_user_id }, data: { professional_id: professionalId, role: 'professional' } });
+    return null;
+  }
+
+  // linkMode === 'new'
+  if (!user_email || !isValidEmail(user_email)) return { error: 'Email de acesso inválido' };
+  if (!user_password) return { error: 'Senha de acesso obrigatória' };
+  const pwErr = validatePassword(user_password);
+  if (pwErr) return { error: pwErr };
+
+  const existing = await prisma.user.findUnique({ where: { email: user_email.trim().toLowerCase() } });
+  if (existing) return { error: 'Email de acesso já cadastrado' };
+
+  if (currentLinked) await prisma.user.update({ where: { id: currentLinked.id }, data: { professional_id: null } });
+
+  const hash = bcrypt.hashSync(user_password, 10);
+  await prisma.user.create({
+    data: {
+      name: professionalName ?? 'Profissional',
+      email: user_email.trim().toLowerCase(),
+      password: hash,
+      role: 'professional',
+      tenant_id: tenantId,
+      professional_id: professionalId,
+    },
+  });
+  return null;
 }
 
 router.get('/', async (req, res) => {
@@ -53,29 +107,23 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const {
     name, email, phone, bio,
     specialty_ids = [], service_ids = [], availability = [],
-    user_email, user_password,
+    link_mode = 'none', link_user_id, user_email, user_password,
   } = req.body as {
     name: string; email?: string; phone?: string; bio?: string;
     specialty_ids?: number[]; service_ids?: number[];
     availability?: { weekday: number; start_time: string; end_time: string }[];
-    user_email?: string; user_password?: string;
+    link_mode?: 'none' | 'existing' | 'new';
+    link_user_id?: number; user_email?: string; user_password?: string;
   };
 
   if (!name) return res.status(400).json({ error: 'Nome obrigatório' });
   if (email && !isValidEmail(email)) return res.status(400).json({ error: 'Email inválido' });
   const tenantId = req.user.tenant_id;
   if (!tenantId) return res.status(403).json({ error: 'Operação não disponível para super admin nesta tela' });
-
-  const createUser = !!(user_email || user_password);
-  if (createUser) {
-    if (!user_email || !isValidEmail(user_email)) return res.status(400).json({ error: 'Email de acesso inválido' });
-    if (!user_password) return res.status(400).json({ error: 'Senha de acesso obrigatória' });
-    const pwErr = validatePassword(user_password);
-    if (pwErr) return res.status(400).json({ error: pwErr });
-  }
 
   const [specValid, svcValid] = await Promise.all([
     assertTenantIds(specialty_ids, (ids) => prisma.specialty.findMany({ where: { id: { in: ids }, tenant_id: tenantId }, select: { id: true } })),
@@ -100,26 +148,15 @@ router.post('/', async (req, res) => {
     }),
   ]);
 
-  if (createUser) {
-    const existingUser = await prisma.user.findUnique({ where: { email: user_email!.trim().toLowerCase() } });
-    if (existingUser) {
+  if (link_mode !== 'none') {
+    const linkErr = await applyUserLink(p.id, tenantId, link_mode, { link_user_id, user_email, user_password, professionalName: name });
+    if (linkErr) {
       await prisma.professional.delete({ where: { id: p.id } });
-      return res.status(409).json({ error: 'Email de acesso já cadastrado' });
+      return res.status(400).json(linkErr);
     }
-    const hash = bcrypt.hashSync(user_password!, 10);
-    await prisma.user.create({
-      data: {
-        name,
-        email: user_email!.trim().toLowerCase(),
-        password: hash,
-        role: 'professional',
-        tenant_id: tenantId,
-        professional_id: p.id,
-      },
-    });
   }
 
-  await logActivity(req, 'create', 'professional', p.id, `Profissional cadastrado: ${name}${createUser ? ' (com acesso ao sistema)' : ''}`);
+  await logActivity(req, 'create', 'professional', p.id, `Profissional cadastrado: ${name}${link_mode !== 'none' ? ' (com acesso ao sistema)' : ''}`);
   res.status(201).json(await enrichProfessional(p.id));
 });
 
@@ -129,10 +166,21 @@ router.put('/:id', async (req, res) => {
   const p = await prisma.professional.findFirst({ where: { id, ...tf } });
   if (!p) return res.status(404).json({ error: 'Profissional não encontrado' });
 
-  const { name, email, phone, bio, active, specialty_ids, service_ids, availability } = req.body as {
+  if (req.user.role === 'professional') {
+    if (req.user.professional_id !== id) {
+      return res.status(403).json({ error: 'Você só pode editar seu próprio perfil profissional' });
+    }
+    if (link_mode !== undefined) {
+      return res.status(403).json({ error: 'Você não pode alterar vínculos de usuário' });
+    }
+  }
+
+  const { name, email, phone, bio, active, specialty_ids, service_ids, availability, link_mode, link_user_id, user_email, user_password } = req.body as {
     name?: string; email?: string; phone?: string; bio?: string; active?: boolean;
     specialty_ids?: number[]; service_ids?: number[];
     availability?: { weekday: number; start_time: string; end_time: string }[];
+    link_mode?: 'none' | 'existing' | 'new';
+    link_user_id?: number; user_email?: string; user_password?: string;
   };
 
   await prisma.professional.update({
@@ -173,11 +221,18 @@ router.put('/:id', async (req, res) => {
     });
   }
 
+  if (link_mode !== undefined) {
+    const tenantId = p.tenant_id;
+    const linkErr = await applyUserLink(p.id, tenantId, link_mode, { link_user_id, user_email, user_password, professionalName: name ?? p.name });
+    if (linkErr) return res.status(400).json(linkErr);
+  }
+
   await logActivity(req, 'update', 'professional', p.id, `Profissional atualizado: ${name ?? p.name}`);
   res.json(await enrichProfessional(p.id));
 });
 
 router.delete('/:id', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const id = parseId(req.params.id, 'Profissional');
   const tf = tenantFilter(req.user);
   const p = await prisma.professional.findFirst({ where: { id, ...tf } });

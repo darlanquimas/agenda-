@@ -77,8 +77,11 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   const id = parseId(req.params.id, 'Agendamento');
   const tf = tenantFilter(req.user);
+  const professionalFilter = req.user.role === 'professional'
+    ? { professional_id: req.user.professional_id ?? -1 }
+    : {};
   const row = await prisma.appointment.findFirst({
-    where: { id, ...tf },
+    where: { id, ...tf, ...professionalFilter },
     include: {
       client: { select: { name: true, phone: true, email: true } },
       professional: { select: { id: true, name: true } },
@@ -136,11 +139,16 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const id = parseId(req.params.id, 'Agendamento');
   const tf = tenantFilter(req.user);
   const app = await prisma.appointment.findFirst({ where: { id, ...tf } });
   if (!app) return res.status(404).json({ error: 'Agendamento não encontrado' });
+
+  if (req.user.role === 'professional') {
+    if (app.professional_id !== req.user.professional_id) {
+      return res.status(403).json({ error: 'Você só pode editar seus próprios agendamentos' });
+    }
+  }
 
   const { title, description, scheduled_at, status, executor, result, professional_id } = req.body as Record<string, string>;
   if (status && !VALID_STATUS.includes(status)) return res.status(400).json({ error: 'Status inválido' });
@@ -251,6 +259,7 @@ router.delete('/:id', async (req, res) => {
 
 // Reenviar mensagem de confirmação WhatsApp
 router.post('/:id/resend-whatsapp', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const id = parseId(req.params.id, 'Agendamento');
   const tf = tenantFilter(req.user);
 

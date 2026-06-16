@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import { fmtDateTimeShort } from '../lib/datetime';
 import api from '../api/axios';
 import StatusBadge from '../components/StatusBadge';
+import { useAuth } from '../contexts/AuthContext';
 
 interface StatCardProps { icon: React.ElementType; label: string; value: number; color: string; sub?: string }
 
@@ -48,6 +49,8 @@ const actionLabels: Record<string, { label: string; cls: string }> = {
 };
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const isProfessional = user?.role === 'professional';
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -127,7 +130,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="card p-5">
+      {!isProfessional && <div className="card p-5">
         <div className="flex items-center gap-2 mb-4">
           <Activity size={18} className="text-indigo-400" />
           <h2 className="text-sm font-semibold text-gray-200">Atividade recente</h2>
@@ -147,7 +150,7 @@ export default function Dashboard() {
             );
           })}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

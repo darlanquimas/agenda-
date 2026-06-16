@@ -10,7 +10,7 @@ interface NavItem {
   divider?: boolean;
 }
 
-const links: NavItem[] = [
+const adminLinks: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { divider: true, label: 'Cadastros' },
   { to: '/clients', icon: Users, label: 'Clientes' },
@@ -21,6 +21,12 @@ const links: NavItem[] = [
   { to: '/appointments', icon: CalendarCheck, label: 'Agendamentos' },
   { to: '/whatsapp', icon: MessageCircle, label: 'WhatsApp' },
   { to: '/history', icon: History, label: 'Histórico' },
+];
+
+const professionalLinks: NavItem[] = [
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { divider: true, label: 'Operação' },
+  { to: '/appointments', icon: CalendarCheck, label: 'Agendamentos' },
 ];
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -71,7 +77,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               Plataforma
             </NavLink>
           )}
-          {!user?.is_super_admin && links.map((item, i) => {
+          {!user?.is_super_admin && (user?.role === 'professional' ? professionalLinks : adminLinks).map((item, i) => {
             if (item.divider) {
               return (
                 <div key={i} className="pt-3 pb-1 px-3">

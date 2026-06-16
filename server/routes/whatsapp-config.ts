@@ -55,6 +55,7 @@ router.get('/', async (req, res) => {
 
 // Atualizar configuração
 router.put('/', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   if (!req.user.tenant_id) {
     return res.status(403).json({ error: 'Tenant não identificado' });
   }
@@ -127,6 +128,7 @@ router.put('/', async (req, res) => {
 
 // Configurar webhook para uma instância
 router.post('/webhook/setup/:instanceId', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const tf = tenantFilter(req.user);
   const instanceId = parseInt(req.params.instanceId);
 
@@ -207,6 +209,7 @@ router.post('/webhook/setup/:instanceId', async (req, res) => {
 
 // Limpar todas as instâncias da Evolution API
 router.delete('/cleanup', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const tf = tenantFilter(req.user);
 
   if (!req.user.tenant_id) {

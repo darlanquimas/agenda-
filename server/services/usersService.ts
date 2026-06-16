@@ -12,6 +12,7 @@ const LIST_SELECT = {
   tenant_id: true,
   active: true,
   created_at: true,
+  professional_id: true,
   tenant: { select: { name: true, slug: true } },
 } as const;
 
@@ -40,6 +41,7 @@ export async function listUsers(opts: { tenantId?: number; tenantIdFilter?: numb
     tenant_id: u.tenant_id,
     active: u.active,
     created_at: u.created_at,
+    professional_id: u.professional_id ?? null,
     tenant_name: u.tenant?.name ?? null,
     tenant_slug: u.tenant?.slug ?? null,
   }));
@@ -51,8 +53,10 @@ export async function createUser(data: {
   password: string;
   tenant_id: number;
   active?: boolean | number;
+  role?: string;
+  professional_id?: number | null;
 }): Promise<SerializedUser> {
-  const { name, email, password, tenant_id, active = true } = data;
+  const { name, email, password, tenant_id, active = true, role = 'admin', professional_id = null } = data;
   if (!name || !email || !password || !tenant_id) {
     throw makeAppError('name, email, password e tenant_id são obrigatórios', 400);
   }
@@ -69,7 +73,15 @@ export async function createUser(data: {
 
   try {
     const row = await prisma.user.create({
-      data: { name, email: email.trim().toLowerCase(), password: hash, role: 'admin', tenant_id: Number(tenant_id), active: isActive },
+      data: {
+        name,
+        email: email.trim().toLowerCase(),
+        password: hash,
+        role,
+        tenant_id: Number(tenant_id),
+        active: isActive,
+        professional_id: professional_id ?? null,
+      },
       select: USER_SELECT,
     });
     return serializeUser(rowToAuthUser(row));
@@ -80,7 +92,7 @@ export async function createUser(data: {
 
 export async function updateUser(
   id: number | string,
-  data: { name?: string; email?: string; password?: string; tenant_id?: number; active?: boolean | number },
+  data: { name?: string; email?: string; password?: string; tenant_id?: number; active?: boolean | number; role?: string },
   opts: { scopeTenantId?: number | null; allowTenantChange?: boolean } = {},
 ): Promise<SerializedUser> {
   const { scopeTenantId = null, allowTenantChange = false } = opts;
@@ -108,6 +120,7 @@ export async function updateUser(
   const isActive = data.active === undefined ? row.active : (data.active === 1 || data.active === true);
 
   try {
+    const safeRole = data.role && ['admin', 'professional'].includes(data.role) ? data.role : undefined;
     const updated = await prisma.user.update({
       where: { id: row.id },
       data: {
@@ -116,6 +129,7 @@ export async function updateUser(
         password: hash,
         tenant_id: targetTenantId,
         active: isActive,
+        ...(safeRole !== undefined ? { role: safeRole } : {}),
       },
       select: USER_SELECT,
     });

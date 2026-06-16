@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Minus, Search, Pencil, Trash2, Loader2, AlertCircle, UserCheck, Clock } from 'lucide-react';
+import { Plus, Minus, Search, Pencil, Trash2, Loader2, AlertCircle, UserCheck, Clock, Link2 } from 'lucide-react';
 import api from '../api/axios';
 import Modal from '../components/Modal';
 import { formatPhone } from '../lib/phone';
@@ -7,7 +7,9 @@ import { formatPhone } from '../lib/phone';
 interface AvailSlot { weekday: number; start_time: string; end_time: string }
 interface Specialty { id: number; name: string; service_ids: number[] }
 interface Service { id: number; name: string }
-interface Professional { id: number; name: string; email: string | null; phone: string | null; bio: string | null; active: boolean; specialties: Specialty[]; services: Service[]; availability: AvailSlot[] }
+interface LinkedUser { id: number; name: string; email: string }
+interface TenantUser { id: number; name: string; email: string; professional_id: number | null }
+interface Professional { id: number; name: string; email: string | null; phone: string | null; bio: string | null; active: boolean; specialties: Specialty[]; services: Service[]; availability: AvailSlot[]; user?: LinkedUser | null }
 
 const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -107,8 +109,10 @@ function AvailabilityEditor({ value, onChange }: { value: AvailSlot[]; onChange:
   );
 }
 
-function ProfessionalForm({ initial, allSpecialties, allServices, onSave, onCancel, loading, error }: {
-  initial: Partial<Professional>; allSpecialties: Specialty[]; allServices: Service[];
+type LinkMode = 'none' | 'existing' | 'new';
+
+function ProfessionalForm({ initial, allSpecialties, allServices, allUsers, onSave, onCancel, loading, error }: {
+  initial: Partial<Professional>; allSpecialties: Specialty[]; allServices: Service[]; allUsers: TenantUser[];
   onSave: (f: any) => void; onCancel: () => void; loading: boolean; error: string;
 }) {
   const defaultAvailability = [1, 2, 3, 4, 5].map((wd) => ({ weekday: wd, start_time: '08:00', end_time: '18:00' }));
@@ -118,6 +122,11 @@ function ProfessionalForm({ initial, allSpecialties, allServices, onSave, onCanc
     service_ids: initial?.services?.map((s) => s.id) ?? [],
     availability: initial?.availability?.length ? initial.availability : defaultAvailability,
   });
+  const [linkMode, setLinkMode] = useState<LinkMode>(initial?.user ? 'existing' : 'none');
+  const [linkUserId, setLinkUserId] = useState<number | ''>(initial?.user?.id ?? '');
+  const [userEmail, setUserEmail] = useState('');
+  const [userPassword, setUserPassword] = useState('');
+
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: k === 'phone' ? formatPhone(e.target.value) : e.target.value }));
   const toggleService = (id: number) =>
@@ -126,16 +135,21 @@ function ProfessionalForm({ initial, allSpecialties, allServices, onSave, onCanc
     setForm((f) => {
       const adding = !f.specialty_ids.includes(specialty.id);
       const specialty_ids = adding ? [...f.specialty_ids, specialty.id] : f.specialty_ids.filter((x) => x !== specialty.id);
-      const service_ids = adding
-        ? [...new Set([...f.service_ids, ...specialty.service_ids])]
-        : f.service_ids;
+      const service_ids = adding ? [...new Set([...f.service_ids, ...specialty.service_ids])] : f.service_ids;
       return { ...f, specialty_ids, service_ids };
     });
+
+  const availableUsers = allUsers.filter(
+    (u) => u.professional_id === null || u.id === initial?.user?.id,
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!loading && form.name) {
-      onSave(form);
+      const payload: any = { ...form, link_mode: linkMode };
+      if (linkMode === 'existing') payload.link_user_id = linkUserId || null;
+      if (linkMode === 'new') { payload.user_email = userEmail; payload.user_password = userPassword; }
+      onSave(payload);
     }
   };
 
@@ -148,6 +162,44 @@ function ProfessionalForm({ initial, allSpecialties, allServices, onSave, onCanc
         <div><label className="label">Telefone</label><input className="input" placeholder="(00) 00000-0000" value={form.phone || ''} onChange={set('phone')} /></div>
         <div className="sm:col-span-2"><label className="label">Bio</label><textarea className="input resize-none" rows={2} placeholder="Breve descrição do profissional..." value={form.bio || ''} onChange={set('bio')} /></div>
       </div>
+
+      {/* Acesso ao sistema */}
+      <div className="rounded-lg border border-gray-800 p-4 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Link2 size={14} className="text-indigo-400" />
+          <span className="text-sm font-medium text-gray-300">Acesso ao sistema</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(['none', 'existing', 'new'] as LinkMode[]).map((m) => (
+            <button key={m} type="button" onClick={() => setLinkMode(m)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${linkMode === m ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-400' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600'}`}>
+              {m === 'none' ? 'Sem acesso' : m === 'existing' ? 'Usuário existente' : 'Criar novo usuário'}
+            </button>
+          ))}
+        </div>
+        {linkMode === 'existing' && (
+          <div>
+            <label className="label">Usuário vinculado</label>
+            <select className="input" value={linkUserId} onChange={(e) => setLinkUserId(e.target.value ? Number(e.target.value) : '')}>
+              <option value="">Selecione um usuário...</option>
+              {availableUsers.map((u) => (
+                <option key={u.id} value={u.id}>{u.name} — {u.email}</option>
+              ))}
+            </select>
+            {availableUsers.length === 0 && <p className="text-xs text-gray-600 mt-1">Nenhum usuário disponível para vincular</p>}
+          </div>
+        )}
+        {linkMode === 'new' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label className="label">Email de acesso *</label><input className="input" type="email" placeholder="email@exemplo.com" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} /></div>
+            <div><label className="label">Senha *</label><input className="input" type="password" placeholder="Mín. 12 caracteres" value={userPassword} onChange={(e) => setUserPassword(e.target.value)} /></div>
+          </div>
+        )}
+        {initial?.user && linkMode !== 'none' && (
+          <p className="text-xs text-gray-500">Atualmente vinculado: <span className="text-indigo-400">{initial.user.email}</span></p>
+        )}
+      </div>
+
       <div>
         <label className="label">Especialidades</label>
         <div className="flex flex-wrap gap-2">
@@ -185,6 +237,7 @@ export default function Professionals() {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [allSpecialties, setAllSpecialties] = useState<Specialty[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
+  const [allUsers, setAllUsers] = useState<TenantUser[]>([]);
   const [q, setQ] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
@@ -196,8 +249,13 @@ export default function Professionals() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [pros, specs, svcs] = await Promise.all([api.get('/professionals', { params: { q: search } }), api.get('/specialties'), api.get('/services')]);
-      setProfessionals(pros.data); setAllSpecialties(specs.data); setAllServices(svcs.data);
+      const [pros, specs, svcs, usrs] = await Promise.all([
+        api.get('/professionals', { params: { q: search } }),
+        api.get('/specialties'),
+        api.get('/services'),
+        api.get('/users'),
+      ]);
+      setProfessionals(pros.data); setAllSpecialties(specs.data); setAllServices(svcs.data); setAllUsers(usrs.data);
     } finally { setLoading(false); }
   }, [search]);
 
@@ -253,6 +311,11 @@ export default function Professionals() {
                   {p.specialties.map((s) => <span key={s.id} className="px-2 py-0.5 bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 text-xs rounded-full">{s.name}</span>)}
                 </div>
               )}
+              {p.user && (
+                <div className="flex items-center gap-1.5 text-xs text-indigo-400/80 bg-indigo-600/5 border border-indigo-500/15 rounded-lg px-2.5 py-1.5">
+                  <Link2 size={11} /><span className="truncate">{p.user.email}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-800">
                 <span className="flex items-center gap-1.5"><UserCheck size={12} />{p.services?.length || 0} serviços</span>
                 <span className="flex items-center gap-1.5"><Clock size={12} />{p.availability?.length ? `${p.availability.length}d/sem` : 'Sem horário'}</span>
@@ -264,7 +327,7 @@ export default function Professionals() {
       )}
 
       <Modal open={!!modal} onClose={() => setModal(null)} title={modal?.professional ? 'Editar profissional' : 'Novo profissional'} size="xl">
-        <ProfessionalForm initial={modal?.professional ?? {}} allSpecialties={allSpecialties} allServices={allServices} onSave={handleSave} onCancel={() => setModal(null)} loading={saving} error={formError} />
+        <ProfessionalForm initial={modal?.professional ?? {}} allSpecialties={allSpecialties} allServices={allServices} allUsers={allUsers} onSave={handleSave} onCancel={() => setModal(null)} loading={saving} error={formError} />
       </Modal>
       <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title="Confirmar desativação" size="sm">
         <p className="text-gray-400 text-sm mb-6">Deseja desativar este profissional? Ele não aparecerá mais no link de agendamento.</p>

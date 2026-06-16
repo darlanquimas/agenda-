@@ -16,6 +16,7 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const { name, description } = req.body as Record<string, string>;
   if (!name) return res.status(400).json({ error: 'Nome obrigatório' });
   const tenantId = req.user.tenant_id;
@@ -30,6 +31,7 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const id = parseId(req.params.id, 'Especialidade');
   const tf = tenantFilter(req.user);
   const s = await prisma.specialty.findFirst({ where: { id, ...tf } });
@@ -45,6 +47,7 @@ router.put('/:id', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const id = parseId(req.params.id, 'Especialidade');
   const tf = tenantFilter(req.user);
   const s = await prisma.specialty.findFirst({ where: { id, ...tf } });

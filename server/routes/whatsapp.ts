@@ -34,6 +34,7 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const { instance_name } = req.body as { instance_name: string };
   
   if (!instance_name || !instance_name.trim()) {
@@ -127,6 +128,7 @@ router.post('/', async (req, res) => {
 });
 
 router.post('/:id/reconnect', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const id = parseId(req.params.id, 'Instância');
   const tf = tenantFilter(req.user);
   
@@ -219,6 +221,7 @@ router.get('/:id/status', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const id = parseId(req.params.id, 'Instância');
   const tf = tenantFilter(req.user);
   
@@ -258,6 +261,7 @@ router.delete('/:id', async (req, res) => {
 });
 
 router.post('/:id/disconnect', async (req, res) => {
+  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const id = parseId(req.params.id, 'Instância');
   const tf = tenantFilter(req.user);
   

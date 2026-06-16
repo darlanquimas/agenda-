@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Activity, ChevronLeft, ChevronRight, Loader2, UserCircle, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Activity, ChevronLeft, ChevronRight, Loader2, UserCircle, Pencil, Plus, Trash2, ShieldOff } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import api from '../api/axios';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ActivityItem {
   id: number; action: string; entity: string | null; details: string | null;
@@ -18,6 +19,7 @@ const actionConfig: Record<string, { label: string; icon: React.ElementType; cls
 const entityLabels: Record<string, string> = { appointment: 'Agendamento', client: 'Cliente', user: 'Usuário' };
 
 export default function History() {
+  const { user } = useAuth();
   const [data, setData] = useState<{ data: ActivityItem[]; total: number; pages: number }>({ data: [], total: 0, pages: 1 });
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -28,7 +30,16 @@ export default function History() {
     finally { setLoading(false); }
   }, [page]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { if (user?.role !== 'professional') fetchData(); }, [fetchData, user]);
+
+  if (user?.role === 'professional') {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center gap-3">
+        <ShieldOff size={36} className="text-gray-700" />
+        <p className="text-gray-500 text-sm">Você não tem permissão para acessar o histórico de atividades.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
