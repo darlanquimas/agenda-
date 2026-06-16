@@ -236,7 +236,7 @@ router.post('/:instanceName', async (req, res) => {
 
             if (instance) {
               await evolutionApiService.sendTextMessage(
-                instance.instance_name,
+                instance.api_instance_name ?? instance.instance_name,
                 appointment.customer_phone,
                 '❌ *Token Expirado*\n\nO código de confirmação expirou. Por favor, entre em contato conosco para reagendar.'
               );
@@ -327,7 +327,7 @@ router.post('/:instanceName', async (req, res) => {
 
           if (instance) {
             await evolutionApiService.sendTextMessage(
-              instance.instance_name,
+              instance.api_instance_name ?? instance.instance_name,
               appointment.customer_phone,
               responseMessage
             );

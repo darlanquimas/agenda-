@@ -115,7 +115,7 @@ export class AppointmentReminderService {
 
           // Enviar lembrete
           await evolutionApiService.sendTextMessage(
-            instance.instance_name,
+            instance.api_instance_name ?? instance.instance_name,
             appointment.customer_phone,
             message
           );

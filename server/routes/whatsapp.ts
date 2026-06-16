@@ -59,8 +59,10 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Já existe uma instância com este nome' });
     }
 
+    const apiInstanceName = `t${tenantId}_${instance_name.trim()}`;
+
     const evolutionResponse = await evolutionApiService.createInstance({
-      instanceName: instance_name.trim(),
+      instanceName: apiInstanceName,
       qrcode: true,
     });
 
@@ -77,7 +79,7 @@ router.post('/', async (req, res) => {
     if (!qrCode) {
       logger.info('[WhatsApp] QR Code não retornado na criação, buscando...');
       try {
-        const qrData = await evolutionApiService.fetchQrCode(instance_name.trim());
+        const qrData = await evolutionApiService.fetchQrCode(apiInstanceName);
         qrCode = qrData.qrcode?.base64 || qrData.qrcode?.code || null;
         logger.info('[WhatsApp] QR Code obtido após criação', {
           hasQrCode: !!qrCode,
@@ -93,6 +95,7 @@ router.post('/', async (req, res) => {
       data: {
         tenant_id: tenantId,
         instance_name: instance_name.trim(),
+        api_instance_name: apiInstanceName,
         instance_id: evolutionResponse.instance?.instanceId,
         status: evolutionResponse.instance?.status || 'disconnected',
         qr_code: qrCode,
@@ -136,10 +139,10 @@ router.post('/:id/reconnect', async (req, res) => {
   }
 
   try {
-    const qrData = await evolutionApiService.fetchQrCode(instance.instance_name);
-    
+    const qrData = await evolutionApiService.fetchQrCode(instance.api_instance_name ?? instance.instance_name);
+
     const qrCode = qrData.qrcode?.base64 || qrData.qrcode?.code;
-    
+
     logger.info('[WhatsApp] QR Code obtido para reconexão', {
       instanceName: instance.instance_name,
       hasQrCode: !!qrCode,
@@ -190,7 +193,7 @@ router.get('/:id/status', async (req, res) => {
   }
 
   try {
-    const statusData = await evolutionApiService.getConnectionStatus(instance.instance_name);
+    const statusData = await evolutionApiService.getConnectionStatus(instance.api_instance_name ?? instance.instance_name);
     
     const newStatus = statusData.instance?.state || 'disconnected';
     
@@ -228,7 +231,7 @@ router.delete('/:id', async (req, res) => {
   }
 
   try {
-    await evolutionApiService.deleteInstance(instance.instance_name);
+    await evolutionApiService.deleteInstance(instance.api_instance_name ?? instance.instance_name);
 
     await prisma.whatsAppInstance.delete({
       where: { id: instance.id },
@@ -267,7 +270,7 @@ router.post('/:id/disconnect', async (req, res) => {
   }
 
   try {
-    await evolutionApiService.logoutInstance(instance.instance_name);
+    await evolutionApiService.logoutInstance(instance.api_instance_name ?? instance.instance_name);
 
     await prisma.whatsAppInstance.update({
       where: { id: instance.id },

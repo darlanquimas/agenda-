@@ -5,7 +5,9 @@
       "Bash(node -e \"console.log\\(require\\('./node_modules/@prisma/client/package.json'\\).version\\)\")",
       "Bash(sed -i 's|from '\\\\''../generated/prisma'\\\\''|from '\\\\''../generated/prisma/client'\\\\''|g' lib/prisma.ts routes/dashboard.ts types/express.d.ts services/bookingValidation.ts)",
       "Bash(sed -i \"s|from '../generated/prisma'|from '../generated/prisma/client'|g\" prisma/seed.ts)",
-      "Bash(xargs cat)"
+      "Bash(xargs cat)",
+      "Bash(grep -rn \"instance_name\\\\|instanceName\" /home/darlan/projetos/darlan/agenda+/server --include=\"*.ts\" ! -path \"*/node_modules/*\" ! -path \"*/dist/*\")",
+      "Bash(grep -rn \"evolutionApiUrl\\\\|evolutionApiKey\" /home/darlan/projetos/darlan/agenda+/server --include=\"*.ts\" ! -path \"*/node_modules/*\" ! -path \"*/dist/*\")"
     ]
   }
 }

@@ -112,7 +112,7 @@ export class WhatsAppService {
 
       // Enviar mensagem de texto simples (mais compatível)
       await evolutionApiService.sendTextMessage(
-        instance.instance_name,
+        instance.api_instance_name ?? instance.instance_name,
         appointmentData.clientPhone,
         message
       );
