@@ -3,78 +3,57 @@ import { Request, Response, NextFunction } from 'express';
 import config from '../config';
 import logger from '../lib/logger';
 
+function safeEqual(a: string, b: string): boolean {
+  try {
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Middleware de autenticação para webhooks
- * Valida API Key e assinatura HMAC
+ * Middleware de autenticação para webhooks da Evolution API.
+ *
+ * Aceita duas formas de autenticação (em ordem de preferência):
+ * 1. Header x-api-key com o WEBHOOK_SECRET (configurado via webhook setup)
+ * 2. Campo apikey no corpo da requisição com o EVOLUTION_API_KEY
+ *    (enviado nativamente pela Evolution API em todas as chamadas)
  */
 export function webhookAuth(req: Request, res: Response, next: NextFunction): void {
-  const webhookSecret = config.webhookSecret;
-
-  if (!webhookSecret) {
-    logger.error('[WebhookAuth] WEBHOOK_SECRET não configurado');
-    res.status(500).json({ error: 'Server configuration error' });
-    return;
-  }
-
-  // 1. Validar API Key no header
-  const apiKey = req.headers['x-api-key'] as string | undefined;
-  
-  if (!apiKey) {
-    logger.warn('[WebhookAuth] API Key não fornecida', {
-      ip: req.ip,
-      userAgent: req.headers['user-agent'],
-      path: req.path,
-    });
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
-
-  // Comparação segura (timing-safe)
-  const isValidApiKey = crypto.timingSafeEqual(
-    Buffer.from(apiKey),
-    Buffer.from(webhookSecret)
-  );
-
-  if (!isValidApiKey) {
-    logger.warn('[WebhookAuth] API Key inválida', {
-      ip: req.ip,
-      userAgent: req.headers['user-agent'],
-      path: req.path,
-      providedKeyLength: apiKey.length,
-    });
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
-
-  // 2. Validar assinatura HMAC (opcional, se Evolution API suportar)
-  const signature = req.headers['x-evolution-signature'] as string | undefined;
-  
-  if (signature) {
-    const rawBody = JSON.stringify(req.body);
-    const expectedSignature = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(rawBody)
-      .digest('hex');
-    
-    const isValidSignature = crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature)
-    );
-
-    if (!isValidSignature) {
-      logger.warn('[WebhookAuth] Assinatura HMAC inválida', {
-        ip: req.ip,
-        path: req.path,
-      });
-      res.status(401).json({ error: 'Invalid signature' });
+  // Método 1: header x-api-key com nosso WEBHOOK_SECRET
+  const headerKey = req.headers['x-api-key'] as string | undefined;
+  if (headerKey && config.webhookSecret) {
+    if (safeEqual(headerKey, config.webhookSecret)) {
+      logger.debug('[WebhookAuth] Autenticado via header x-api-key', { ip: req.ip });
+      next();
       return;
     }
+    logger.warn('[WebhookAuth] Header x-api-key inválido', { ip: req.ip, path: req.path });
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
   }
 
-  logger.debug('[WebhookAuth] Autenticação bem-sucedida', {
+  // Método 2: campo apikey no body enviado nativamente pela Evolution API
+  // Compara contra evolutionApiKey OU webhookSecret (ambos são candidatos válidos)
+  const bodyApiKey = req.body?.apikey as string | undefined;
+  if (bodyApiKey) {
+    const matchesEvolutionKey = config.evolutionApiKey && safeEqual(bodyApiKey, config.evolutionApiKey);
+    const matchesWebhookSecret = config.webhookSecret && safeEqual(bodyApiKey, config.webhookSecret);
+    if (matchesEvolutionKey || matchesWebhookSecret) {
+      logger.debug('[WebhookAuth] Autenticado via apikey no body', { ip: req.ip });
+      next();
+      return;
+    }
+    logger.warn('[WebhookAuth] apikey no body inválido', { ip: req.ip, path: req.path });
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  logger.warn('[WebhookAuth] Nenhuma credencial fornecida', {
     ip: req.ip,
+    userAgent: req.headers['user-agent'],
     path: req.path,
   });
-
-  next();
+  res.status(401).json({ error: 'Unauthorized' });
 }
