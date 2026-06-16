@@ -259,7 +259,6 @@ router.delete('/:id', async (req, res) => {
 
 // Reenviar mensagem de confirmação WhatsApp
 router.post('/:id/resend-whatsapp', async (req, res) => {
-  if (req.user.role === 'professional') return res.status(403).json({ error: 'Acesso não permitido' });
   const id = parseId(req.params.id, 'Agendamento');
   const tf = tenantFilter(req.user);
 
@@ -275,6 +274,10 @@ router.post('/:id/resend-whatsapp', async (req, res) => {
 
     if (!appointment) {
       return res.status(404).json({ error: 'Agendamento não encontrado' });
+    }
+
+    if (req.user.role === 'professional' && appointment.professional_id !== req.user.professional_id) {
+      return res.status(403).json({ error: 'Você só pode reenviar mensagens dos seus próprios agendamentos' });
     }
 
     // Verificar se tem telefone
