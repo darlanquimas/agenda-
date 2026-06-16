@@ -84,18 +84,33 @@ export default function TenantUsers() {
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-800/50 text-gray-400 text-left">
-              <tr><th className="px-4 py-3">Nome</th><th className="px-4 py-3">Email</th><th className="px-4 py-3">Status</th><th className="px-4 py-3" /></tr>
+              <tr>
+                <th className="px-4 py-3">Nome</th>
+                <th className="px-4 py-3 hidden sm:table-cell">Email</th>
+                <th className="px-4 py-3 hidden sm:table-cell">Status</th>
+                <th className="px-4 py-3 w-12" />
+              </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
               {users.length === 0 ? (
                 <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-500">Nenhum usuário cadastrado</td></tr>
               ) : users.map((u) => (
                 <tr key={u.id} className="hover:bg-gray-800/30">
-                  <td className="px-4 py-3 text-gray-200">{u.name}</td>
-                  <td className="px-4 py-3 text-gray-400">{u.email}</td>
-                  <td className="px-4 py-3"><span className={u.active ? 'text-green-400' : 'text-red-400'}>{u.active ? 'Ativo' : 'Inativo'}</span></td>
                   <td className="px-4 py-3">
-                    <button type="button" className="p-1.5 text-gray-400 hover:text-indigo-400" onClick={() => setModal({ ...u, password: '' })}>
+                    <p className="text-gray-200">{u.name}</p>
+                    <div className="sm:hidden mt-0.5 space-y-0.5">
+                      <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                      <span className={`text-xs font-medium ${u.active ? 'text-green-400' : 'text-red-400'}`}>
+                        {u.active ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 hidden sm:table-cell">{u.email}</td>
+                  <td className="px-4 py-3 hidden sm:table-cell">
+                    <span className={u.active ? 'text-green-400' : 'text-red-400'}>{u.active ? 'Ativo' : 'Inativo'}</span>
+                  </td>
+                  <td className="px-4 py-3 w-12">
+                    <button type="button" className="p-1.5 text-gray-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors" onClick={() => setModal({ ...u, password: '' })}>
                       <Pencil size={15} />
                     </button>
                   </td>
