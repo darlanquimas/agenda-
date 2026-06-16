@@ -12,6 +12,9 @@ import appointmentReminderService from './services/appointmentReminderService';
 
 const app = express();
 
+// Necessário para rate limiting correto atrás de proxy reverso (Nginx/Cloudflare)
+app.set('trust proxy', 1);
+
 // Helmet com CSP customizada
 app.use(helmet({
   contentSecurityPolicy: {

@@ -165,6 +165,9 @@ router.post('/webhook/setup/:instanceId', async (req, res) => {
         webhook: {
           enabled: true,
           url: webhookUrl,
+          headers: {
+            'x-api-key': config.webhookSecret,
+          },
           webhook_by_events: false,
           webhook_base64: false,
           events: ['MESSAGES_UPSERT'],
