@@ -8,7 +8,9 @@
       "Bash(xargs cat)",
       "Bash(grep -rn \"instance_name\\\\|instanceName\" /home/darlan/projetos/darlan/agenda+/server --include=\"*.ts\" ! -path \"*/node_modules/*\" ! -path \"*/dist/*\")",
       "Bash(grep -rn \"evolutionApiUrl\\\\|evolutionApiKey\" /home/darlan/projetos/darlan/agenda+/server --include=\"*.ts\" ! -path \"*/node_modules/*\" ! -path \"*/dist/*\")",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(TZ=UTC node -e ' *)"
     ]
   }
 }

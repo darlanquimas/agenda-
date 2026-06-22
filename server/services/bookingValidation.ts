@@ -1,5 +1,21 @@
 import { PrismaClient } from '../generated/prisma/client';
 
+// O servidor (container) roda em UTC, mas agendamentos usam horário de Brasília
+// como horário "ingênuo" (sem timezone). Sem isso, `new Date()` fica até 3h
+// adiantado em relação ao horário local, escondendo horários futuros do dia atual.
+const BUSINESS_TIMEZONE = process.env.BUSINESS_TIMEZONE || 'America/Sao_Paulo';
+
+const nowInBusinessTz = (): Date => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: BUSINESS_TIMEZONE,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date());
+  const get = (type: string) => Number(parts.find((p) => p.type === type)!.value);
+  return new Date(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'));
+};
+
 const toMin = (t: string): number => {
   const [h, m] = t.split(':').map(Number);
   return h * 60 + m;
@@ -42,7 +58,7 @@ export async function getAvailableSlots(
   const pid = Number(professionalId);
   const sid = Number(serviceId);
 
-  const now = new Date();
+  const now = nowInBusinessTz();
 
   if (date < localDateStr(now)) return { slots: [] };
 
@@ -100,7 +116,7 @@ export async function validateBookingRequest(
   tenantId: number,
   opts: { professional_id: number | string; service_id: number | string; date: string; time: string },
 ): Promise<ValidationResult> {
-  const now = new Date();
+  const now = nowInBusinessTz();
   const scheduledAt = new Date(`${opts.date}T${opts.time}:00`);
   if (scheduledAt <= now) {
     return { error: 'Não é possível agendar em data/hora passada', status: 400 };

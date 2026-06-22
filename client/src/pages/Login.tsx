@@ -47,7 +47,7 @@ export default function Login() {
               <label className="label">Email</label>
               <div className="relative">
                 <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                <input type="email" className="input pl-9" placeholder="admin@agendaplus.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <input type="email" className="input pl-9" placeholder="seuemail@seudominio.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
             </div>
             <div>
@@ -62,11 +62,7 @@ export default function Login() {
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
           </form>
-          {(import.meta as any).env?.DEV && (
-            <p className="text-center text-xs text-gray-600 mt-6">
-              {/* Dev: super@agendaplus.com / super123 ou admin@agendaplus.com / admin123 */}
-            </p>
-          )}
+
         </div>
       </div>
     </div>
