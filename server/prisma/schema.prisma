@@ -229,33 +229,32 @@ model Availability {
 }
 
 model WhatsAppInstance {
-  id                Int      @id @default(autoincrement())
-  tenant_id         Int
-  instance_name     String
-  api_instance_name String?
-  instance_id       String?
-  phone_number      String?
-  status            String   @default("disconnected")
-  qr_code           String?
-  connected_at      DateTime?
-  created_at        DateTime @default(now())
-  updated_at        DateTime @updatedAt
+  id            Int       @id @default(autoincrement())
+  tenant_id     Int
+  instance_name String
+  phone_number  String?
+  status        String    @default("disconnected")
+  connected_at  DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
 
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 
   @@unique([tenant_id, instance_name])
-  @@unique([api_instance_name])
   @@map("whatsapp_instances")
 }
 
 model WhatsAppConfig {
-  id                          Int      @id @default(autoincrement())
-  tenant_id                   Int      @unique
-  confirmation_message        String   @default("Olá {{cliente}}! 🎉\n\nSeu agendamento foi confirmado:\n\n📅 Data: {{data}}\n🕐 Horário: {{horario}}\n📍 Serviço: {{servico}}\n👤 Profissional: {{profissional}}\n\nNos vemos em breve!")
-  send_confirmation           Boolean  @default(true)
-  default_instance_id         Int?
-  created_at                  DateTime @default(now())
-  updated_at                  DateTime @updatedAt
+  id                     Int      @id @default(autoincrement())
+  tenant_id              Int      @unique
+  evo_client_id          String?
+  evo_api_key            String?
+  webhook_signing_secret String?
+  confirmation_message   String   @default("Olá {{cliente}}! 🎉\n\nSeu agendamento foi confirmado:\n\n📅 Data: {{data}}\n🕐 Horário: {{horario}}\n📍 Serviço: {{servico}}\n👤 Profissional: {{profissional}}\n\nNos vemos em breve!")
+  send_confirmation       Boolean  @default(true)
+  default_instance_id     Int?
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
 

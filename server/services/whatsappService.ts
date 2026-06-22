@@ -1,5 +1,5 @@
 import prisma from '../lib/prisma';
-import evolutionApiService from './evolutionApiService';
+import * as evoManagerService from './evoManagerService';
 import logger from '../lib/logger';
 
 interface AppointmentData {
@@ -99,6 +99,11 @@ export class WhatsAppService {
         return false;
       }
 
+      if (!config.evo_client_id || !config.evo_api_key) {
+        logger.warn('[WhatsApp] Credenciais do Evo Manager não configuradas', { tenantId });
+        return false;
+      }
+
       // Substituir variáveis no template
       let message = this.replaceVariables(config.confirmation_message, appointmentData);
       
@@ -109,9 +114,10 @@ export class WhatsAppService {
         message += `\n\n📌 *Para confirmar seu agendamento, responda:*\n✅ *SIM* - para confirmar\n❌ *NÃO* - para cancelar`;
       }
 
-      // Enviar mensagem de texto simples (mais compatível)
-      await evolutionApiService.sendTextMessage(
-        instance.api_instance_name ?? instance.instance_name,
+      await evoManagerService.sendText(
+        config.evo_client_id,
+        config.evo_api_key,
+        instance.instance_name,
         appointmentData.clientPhone,
         message
       );

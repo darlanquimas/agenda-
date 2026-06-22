@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import prisma from '../lib/prisma';
-import evolutionApiService from './evolutionApiService';
+import * as evoManagerService from './evoManagerService';
 import logger from '../lib/logger';
 
 export class AppointmentReminderService {
@@ -99,12 +99,14 @@ export class AppointmentReminderService {
               scheduledAt: appointment.scheduled_at,
             });
 
-            if (config?.send_confirmation && appointment.customer_phone) {
+            if (config?.send_confirmation && appointment.customer_phone && config.evo_client_id && config.evo_api_key) {
               const instance = await this.resolveInstance(appointment.tenant_id, config.default_instance_id);
               if (instance) {
                 const msg = `❌ *Agendamento Cancelado*\n\nOlá ${appointment.customer_name}!\n\nSeu agendamento não foi confirmado e foi cancelado automaticamente pois faltava menos de 1 hora para o horário marcado.\n\n📅 Data: ${this.formatDate(appointment.scheduled_at)}\n🕐 Horário: ${this.formatTime(appointment.scheduled_at)}\n📍 Serviço: ${appointment.service?.name || 'Não especificado'}\n\nSe desejar reagendar, entre em contato conosco.`;
-                await evolutionApiService.sendTextMessage(
-                  instance.api_instance_name ?? instance.instance_name,
+                await evoManagerService.sendText(
+                  config.evo_client_id,
+                  config.evo_api_key,
+                  instance.instance_name,
                   appointment.customer_phone,
                   msg
                 );
@@ -116,6 +118,7 @@ export class AppointmentReminderService {
           } else if (isOldEnoughForReminder) {
             // Enviar lembrete de confirmação
             if (!config?.send_confirmation || !appointment.customer_phone) continue;
+            if (!config.evo_client_id || !config.evo_api_key) continue;
 
             const instance = await this.resolveInstance(appointment.tenant_id, config.default_instance_id);
             if (!instance) {
@@ -128,8 +131,10 @@ export class AppointmentReminderService {
 
             const message = `🔔 *Lembrete de Confirmação*\n\nOlá ${appointment.customer_name}!\n\nNotamos que você ainda não confirmou seu agendamento:\n\n📅 Data: ${this.formatDate(appointment.scheduled_at)}\n🕐 Horário: ${this.formatTime(appointment.scheduled_at)}\n📍 Serviço: ${appointment.service?.name || 'Não especificado'}\n👤 Profissional: ${appointment.professional?.name || 'Não especificado'}\n\n⚠️ *Por favor, confirme seu agendamento:*\nResponda esta mensagem com:\n✅ *SIM* - para confirmar\n❌ *NÃO* - para cancelar`;
 
-            await evolutionApiService.sendTextMessage(
-              instance.api_instance_name ?? instance.instance_name,
+            await evoManagerService.sendText(
+              config.evo_client_id,
+              config.evo_api_key,
+              instance.instance_name,
               appointment.customer_phone,
               message
             );

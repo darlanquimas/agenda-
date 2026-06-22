@@ -46,22 +46,13 @@ export function maskToken(token: string | undefined | null): string {
 }
 
 /**
- * Valida se o número é de origem WhatsApp válida
+ * Valida formato de telefone recebido do webhook (apenas dígitos, 10-20 caracteres,
+ * conforme especificado pelo gateway Evo Manager Plus)
  */
-export function isValidWhatsAppOrigin(remoteJid: string | undefined): boolean {
-  if (!remoteJid) return false;
-  
-  // Formato válido: número@s.whatsapp.net
-  return remoteJid.endsWith('@s.whatsapp.net');
-}
+export function isValidPhoneFormat(phone: string | undefined): boolean {
+  if (!phone) return false;
 
-/**
- * Extrai número de telefone limpo do remoteJid
- */
-export function extractPhoneFromJid(remoteJid: string | undefined): string | null {
-  if (!remoteJid || !isValidWhatsAppOrigin(remoteJid)) return null;
-  
-  return remoteJid.replace('@s.whatsapp.net', '').replace(/\D/g, '');
+  return /^\d{10,20}$/.test(phone.replace(/\D/g, ''));
 }
 
 /**

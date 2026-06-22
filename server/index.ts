@@ -3,7 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import config from './config';
 import { loginLimiter, bookingLimiter, apiLimiter, twoFactorLimiter, webhookLimiter } from './middleware/rateLimit';
-import { webhookAuth } from './middleware/webhookAuth';
 import resolveTenant from './middleware/resolveTenant';
 import { sanitizeMiddleware } from './middleware/sanitize';
 import { requestLogger } from './lib/logger';
@@ -58,7 +57,12 @@ try {
   logger.warn('cookie-parser não instalado - cookies desabilitados temporariamente');
 }
 
-app.use(express.json({ limit: config.jsonBodyLimit }));
+// Captura o corpo bruto da requisição (necessário para validar a assinatura
+// HMAC dos webhooks do Evo Manager, que é calculada sobre os bytes originais).
+app.use(express.json({
+  limit: config.jsonBodyLimit,
+  verify: (req, _res, buf) => { (req as any).rawBody = buf; },
+}));
 app.use(express.urlencoded({ extended: true, limit: config.jsonBodyLimit }));
 app.disable('x-powered-by');
 
@@ -77,8 +81,8 @@ app.use('/api/booking/:tenantSlug', (req, _res, next) => {
   next();
 });
 
-// Webhook do WhatsApp (com autenticação e rate limiting)
-app.use('/webhook/whatsapp', webhookLimiter, webhookAuth, require('./routes/whatsapp-webhook').default);
+// Webhook do WhatsApp (autenticação HMAC por tenant feita dentro da rota /:tenantId)
+app.use('/webhook/whatsapp', webhookLimiter, require('./routes/whatsapp-webhook').default);
 
 app.use('/api/auth', require('./routes/auth').default);
 app.use('/api/auth', require('./routes/refresh').default);

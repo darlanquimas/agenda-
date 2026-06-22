@@ -18,6 +18,7 @@ declare global {
       user: AuthUser;
       tenant: Tenant;
       tenantId: number;
+      rawBody?: Buffer;
     }
   }
 }

@@ -79,14 +79,11 @@ const config = {
   logLevel: process.env.LOG_LEVEL ?? (isProduction ? 'info' : 'debug'),
   logDir: process.env.LOG_DIR ?? 'logs',
   
-  // Evolution API Configuration
-  evolutionApiUrl: process.env.EVOLUTION_API_URL ?? '',
-  evolutionApiKey: process.env.EVOLUTION_API_KEY ?? '',
+  // Evo Manager Plus (gateway WhatsApp) — URL base é a mesma para todos os tenants;
+  // Client ID/API Key/webhook signing secret são por tenant, configurados na tela de WhatsApp.
+  evoManagerApiUrl: process.env.EVO_MANAGER_API_URL ?? '',
   webhookBaseUrl: process.env.WEBHOOK_BASE_URL ?? `http://localhost:${Number(process.env.PORT) || 3009}`,
-  
-  // Webhook Security
-  webhookSecret: process.env.WEBHOOK_SECRET ?? '',
-  
+
   // Token Configuration
   confirmationTokenExpirationHours: Number(process.env.CONFIRMATION_TOKEN_EXPIRATION_HOURS) || 48,
 };
