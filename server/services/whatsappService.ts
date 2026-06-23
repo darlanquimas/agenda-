@@ -140,6 +140,78 @@ export class WhatsAppService {
       return false;
     }
   }
+
+  /**
+   * Envia mensagem de cancelamento de agendamento
+   */
+  async sendAppointmentCancellation(
+    tenantId: number,
+    appointmentData: AppointmentData
+  ): Promise<boolean> {
+    try {
+      const config = await prisma.whatsAppConfig.findUnique({
+        where: { tenant_id: tenantId },
+      });
+
+      if (!config || !config.send_confirmation) {
+        logger.info('[WhatsApp] Envio de cancelamento desabilitado ou não configurado', {
+          tenantId,
+          hasConfig: !!config,
+          sendEnabled: config?.send_confirmation,
+        });
+        return false;
+      }
+
+      let instance;
+      if (config.default_instance_id) {
+        instance = await prisma.whatsAppInstance.findFirst({
+          where: { id: config.default_instance_id, tenant_id: tenantId, status: 'open' },
+        });
+      }
+      if (!instance) {
+        instance = await prisma.whatsAppInstance.findFirst({
+          where: { tenant_id: tenantId, status: 'open' },
+          orderBy: { connected_at: 'desc' },
+        });
+      }
+
+      if (!instance) {
+        logger.warn('[WhatsApp] Nenhuma instância conectada encontrada', { tenantId });
+        return false;
+      }
+
+      if (!config.evo_client_id || !config.evo_api_key) {
+        logger.warn('[WhatsApp] Credenciais do Evo Manager não configuradas', { tenantId });
+        return false;
+      }
+
+      const message = `❌ *Agendamento Cancelado*\n\nOlá ${appointmentData.clientName}!\n\nSeu agendamento foi CANCELADO:\n\n📅 Data: ${this.formatDate(appointmentData.date)}\n🕐 Horário: ${this.formatTime(appointmentData.date)}\n📍 Serviço: ${appointmentData.serviceName || 'Não especificado'}\n👤 Profissional: ${appointmentData.professionalName || 'Não especificado'}\n\nSe desejar reagendar, entre em contato conosco.`;
+
+      await evoManagerService.sendText(
+        config.evo_client_id,
+        config.evo_api_key,
+        instance.instance_name,
+        appointmentData.clientPhone,
+        message
+      );
+
+      logger.info('[WhatsApp] Cancelamento de agendamento enviado', {
+        tenantId,
+        appointmentId: appointmentData.appointmentId,
+        instanceName: instance.instance_name,
+        clientPhone: appointmentData.clientPhone,
+      });
+
+      return true;
+    } catch (error: any) {
+      logger.error('[WhatsApp] Erro ao enviar cancelamento de agendamento', {
+        tenantId,
+        error: error.message,
+        stack: error.stack,
+      });
+      return false;
+    }
+  }
 }
 
 const whatsappService = new WhatsAppService();

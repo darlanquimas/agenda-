@@ -4,6 +4,7 @@ import { toDateTimeLocal, fmtDateTime } from '../lib/datetime';
 import api from '../api/axios';
 import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
+import { useToast } from '../contexts/ToastContext';
 
 interface Appointment {
   id: number; title: string; description: string | null; scheduled_at: string;
@@ -93,6 +94,7 @@ function AppointmentForm({ initial, onSave, onCancel, loading, error }: {
 }
 
 export default function Appointments() {
+  const toast = useToast();
   const [data, setData] = useState<{ data: Appointment[]; total: number; pages: number }>({ data: [], total: 0, pages: 1 });
   const [page, setPage] = useState(1);
   const [q, setQ] = useState('');
@@ -133,15 +135,16 @@ export default function Appointments() {
     setModal({ appointment: a });
   };
 
-  const handleResendWhatsApp = async (id: number) => {
-    if (!confirm('Enviar mensagem de confirmação via WhatsApp?')) return;
-    
-    setSendingWhatsApp(id);
+  const handleResendWhatsApp = async (a: Appointment) => {
+    const isCancelled = a.status === 'cancelled';
+    if (!confirm(isCancelled ? 'Enviar mensagem de cancelamento via WhatsApp?' : 'Enviar mensagem de confirmação via WhatsApp?')) return;
+
+    setSendingWhatsApp(a.id);
     try {
-      const response = await api.post(`/appointments/${id}/resend-whatsapp`);
-      alert(response.data.message || 'Mensagem enviada com sucesso!');
+      const response = await api.post(`/appointments/${a.id}/resend-whatsapp`);
+      toast.success(response.data.message || 'Mensagem enviada com sucesso!');
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Erro ao enviar mensagem');
+      toast.error(err.response?.data?.error || 'Erro ao enviar mensagem');
     } finally {
       setSendingWhatsApp(null);
     }
@@ -215,11 +218,11 @@ export default function Appointments() {
                   <td className="px-4 py-3 hidden sm:table-cell"><StatusBadge status={a.status} /></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 justify-end">
-                      <button 
-                        onClick={() => handleResendWhatsApp(a.id)} 
+                      <button
+                        onClick={() => handleResendWhatsApp(a)}
                         className="p-1.5 text-gray-500 hover:text-green-400 hover:bg-green-500/10 rounded-lg transition-colors"
                         disabled={sendingWhatsApp === a.id}
-                        title="Reenviar confirmação WhatsApp"
+                        title={a.status === 'cancelled' ? 'Enviar mensagem de cancelamento WhatsApp' : 'Reenviar confirmação WhatsApp'}
                       >
                         {sendingWhatsApp === a.id ? (
                           <Loader2 size={15} className="animate-spin" />

@@ -8,7 +8,7 @@ import logger from '../lib/logger';
 
 const router = createRouter();
 const VALID_STATUS = ['pending', 'scheduled', 'running', 'finished', 'failed', 'cancelled'];
-const BLOCKS_SLOT = ['scheduled', 'running', 'finished'];
+const BLOCKS_SLOT = ['pending', 'scheduled', 'running', 'finished'];
 
 async function checkProfessionalConflict(
   tenantId: number,
@@ -286,16 +286,18 @@ router.post('/:id/resend-whatsapp', async (req, res) => {
       return res.status(400).json({ error: 'Agendamento não possui telefone cadastrado' });
     }
 
-    // Gerar novo token se não existir
+    const isCancelled = appointment.status === 'cancelled';
+
+    // Gerar novo token se não existir (não necessário para mensagem de cancelamento)
     let confirmationToken = appointment.confirmation_token;
-    if (!confirmationToken) {
+    if (!isCancelled && !confirmationToken) {
       confirmationToken = await generateUniqueToken(async (token) => {
         const existing = await prisma.appointment.findUnique({
           where: { confirmation_token: token },
         });
         return !!existing;
       });
-      
+
       // Atualizar agendamento com o novo token
       await prisma.appointment.update({
         where: { id: appointment.id },
@@ -303,23 +305,24 @@ router.post('/:id/resend-whatsapp', async (req, res) => {
       });
     }
 
-    // Enviar mensagem
-    const sent = await whatsappService.sendAppointmentConfirmation(
-      req.user.tenant_id!,
-      {
-        appointmentId: appointment.id,
-        confirmationToken: confirmationToken,
-        clientName: appointment.customer_name || appointment.client?.name || 'Cliente',
-        clientPhone: phone,
-        date: appointment.scheduled_at,
-        serviceName: appointment.service?.name,
-        professionalName: appointment.professional?.name,
-      }
-    );
+    // Enviar mensagem (cancelamento ou confirmação, de acordo com o status atual)
+    const appointmentData = {
+      appointmentId: appointment.id,
+      confirmationToken: confirmationToken || '',
+      clientName: appointment.customer_name || appointment.client?.name || 'Cliente',
+      clientPhone: phone,
+      date: appointment.scheduled_at,
+      serviceName: appointment.service?.name,
+      professionalName: appointment.professional?.name,
+    };
+
+    const sent = isCancelled
+      ? await whatsappService.sendAppointmentCancellation(req.user.tenant_id!, appointmentData)
+      : await whatsappService.sendAppointmentConfirmation(req.user.tenant_id!, appointmentData);
 
     if (!sent) {
-      return res.status(400).json({ 
-        error: 'Não foi possível enviar a mensagem. Verifique se há uma instância WhatsApp conectada e se o envio está habilitado.' 
+      return res.status(400).json({
+        error: 'Não foi possível enviar a mensagem. Verifique se há uma instância WhatsApp conectada e se o envio está habilitado.'
       });
     }
 
@@ -328,7 +331,7 @@ router.post('/:id/resend-whatsapp', async (req, res) => {
       'update',
       'appointment',
       appointment.id,
-      `Mensagem WhatsApp reenviada para ${phone}`
+      `Mensagem WhatsApp de ${isCancelled ? 'cancelamento' : 'confirmação'} reenviada para ${phone}`
     );
 
     res.json({ 
